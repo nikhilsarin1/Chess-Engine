@@ -75,6 +75,8 @@ public class ControllerImpl implements Controller {
       model.movePiece(origin, destination, true);
       model.searching = false;
       bot.searchCount = 0;
+
+      // Current implementation checking around 2500-3000 nodes per sec
     }
   }
 }

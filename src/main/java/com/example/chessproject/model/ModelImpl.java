@@ -505,11 +505,6 @@ public class ModelImpl implements Model {
   private boolean notInCheck(Square currentSquare, Square newSquare) {
     boolean check;
 
-//    movePiece(currentSquare, newSquare, false);
-//    check = isCheck(currentTurn, opponentPossibleMoves(pieces));
-//    undoMove();
-//    return !check;
-
     // Create a copy of the pieces list
     List<Piece> piecesCopy = new ArrayList<>(pieces);
 
@@ -893,6 +888,7 @@ public class ModelImpl implements Model {
 
     generatePossibleMoves();
     generateLegalMoves();
+    getOrderedLegalMoves();
   }
 
   public void addObserver(ModelObserver observer) {
