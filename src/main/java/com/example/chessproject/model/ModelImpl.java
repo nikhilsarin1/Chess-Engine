@@ -888,7 +888,7 @@ public class ModelImpl implements Model {
 
     generatePossibleMoves();
     generateLegalMoves();
-    getOrderedLegalMoves();
+    generateOrderedLegalMoves();
   }
 
   public void addObserver(ModelObserver observer) {
