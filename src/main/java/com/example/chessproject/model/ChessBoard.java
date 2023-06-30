@@ -1,22 +1,16 @@
 package com.example.chessproject.model;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /** Represents a chessboard consisting of squares. The chessboard is an 8x8 grid of squares. */
 public class ChessBoard {
-  private final List<List<Square>> board;
+  private final Square[] board;
 
   /** Constructs a new 8x8 standard ChessBoard */
   public ChessBoard() {
-    board = new ArrayList<>(8);
-    for (int row = 0; row < 8; row++) {
-      List<Square> rowList = new ArrayList<>(8);
-      for (int col = 0; col < 8; col++) {
-        rowList.add(new Square(row, col));
-      }
-      board.add(rowList);
+    this.board = new Square[64];
+    for (int i = 0; i<64; i++) {
+      board[i] = new Square(i/8, i % 8);
     }
+
   }
 
   /**
@@ -31,6 +25,6 @@ public class ChessBoard {
     if (row > 7 || col > 7) {
       throw new IllegalArgumentException();
     }
-    return board.get(row).get(col);
+    return board[row*8+col];
   }
 }
