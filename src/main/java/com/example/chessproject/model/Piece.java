@@ -9,6 +9,8 @@ import java.util.List;
  * getImagePath methods.
  */
 public abstract class Piece {
+  private long whiteBitBoard;
+  private long blackBitBoard;
   private final boolean color;
   private final PieceType type;
   private Square square;
@@ -25,6 +27,8 @@ public abstract class Piece {
     this.color = color;
     this.square = null;
     this.hasMoved = false;
+    this.whiteBitBoard = 0L;
+    this.blackBitBoard = 0L;
   }
 
   /**

@@ -51,8 +51,6 @@ public class BoardView implements FXComponent, ModelObserver {
     this.model.startingBoard();
 
     showColorSelectionDialog();
-
-
   }
 
   public Parent render() {

@@ -34,7 +34,7 @@ public class ModelImpl implements Model {
     this.legalMoves = null;
     this.orderedLegalMoves = null;
     this.selectedPlayer = true;
-    moveStack = new Stack<>();
+    this.moveStack = new Stack<>();
   }
 
   public void changeTurn() {

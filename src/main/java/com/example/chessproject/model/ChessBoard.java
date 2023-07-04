@@ -7,10 +7,9 @@ public class ChessBoard {
   /** Constructs a new 8x8 standard ChessBoard */
   public ChessBoard() {
     this.board = new Square[64];
-    for (int i = 0; i<64; i++) {
-      board[i] = new Square(i/8, i % 8);
+    for (int i=0; i<64; i++) {
+      board[i] = new Square(i/8, i%8);
     }
-
   }
 
   /**
