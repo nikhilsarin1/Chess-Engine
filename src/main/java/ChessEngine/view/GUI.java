@@ -36,7 +36,7 @@ public class GUI extends Application {
         primaryStage.setScene(scene);
 
         // Set the title of the primaryStage
-        primaryStage.setTitle("Chess Game");
+        primaryStage.setTitle("Improved Chess Game");
 
         // Show the primaryStage
         primaryStage.show();

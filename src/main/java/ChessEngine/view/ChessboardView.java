@@ -4,6 +4,7 @@ import ChessEngine.controller.Controller;
 import ChessEngine.model.*;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.event.EventHandler;
 import javafx.geometry.HPos;
@@ -11,6 +12,10 @@ import javafx.geometry.Insets;
 import javafx.geometry.VPos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.ColumnConstraints;
@@ -18,6 +23,9 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.RowConstraints;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import javafx.util.Duration;
 import java.util.Objects;
 
@@ -31,18 +39,22 @@ public class ChessboardView implements ModelObserver, FXComponent {
     private int lastMoveDestination;
     private boolean isFlashing;
     private boolean orientation;
+    private int[] moves;
     public ChessboardView(Model model, Controller controller) {
         this.model = model;
         this.controller = controller;
         this.gridPane = new GridPane();
-        this.chessboard = convertBitboardsToCharArray(model.getBitboard().pieceBitboards);
+        this.chessboard = model.getBitboard().convertBitboardsToCharArray(model.getBitboard().pieceBitboards);
         this.isFlashing = false;
         this.lastMoveOrigin = -1;
         this.lastMoveDestination = -1;
         this.orientation = true;
+        showColorSelectionDialog();
     }
     public Parent render() {
         gridPane.setPadding(new Insets(10));
+        long attackMap = model.getBitboard().attackMap;
+        int[] attack = model.getBitboard().convertBitboardToArrayOfIndexes(attackMap);
 
         // Create column and row constraints for the GridPane
         for (int i = 0; i < 8; i++) {
@@ -51,6 +63,15 @@ public class ChessboardView implements ModelObserver, FXComponent {
             gridPane.getColumnConstraints().add(colConstraints);
             gridPane.getRowConstraints().add(rowConstraints);
         }
+        Button undoButton = new Button("Undo Move");
+        undoButton.setOnAction(event -> {
+            // Specify the action to be performed when the button is clicked
+            // For example, call a method in the controller to undo the last move
+            model.undoMove();
+        });
+
+        // Add the button to the bottom row of the GridPane
+        gridPane.add(undoButton, 0, 8, 8, 1); // Span the button across all columns
         for (int i = 0 ; i < 64; i++) {
             int square = orientation ? i : 63 - i;
             int row = i / 8;
@@ -64,6 +85,12 @@ public class ChessboardView implements ModelObserver, FXComponent {
             if (square == lastMoveOrigin || square == lastMoveDestination) {
                 highlightSquare(rectangle);
             }
+
+//            for (int j=0; j<attack.length; j++) {
+//                if (attack[j] == i) {
+//                    highlightSquare(rectangle);
+//                }
+//            }
 
             // Set mouse event handlers for square highlighting and piece movement
             rectangle.setOnMouseEntered(event -> highlightOutline(rectangle));
@@ -145,57 +172,29 @@ public class ChessboardView implements ModelObserver, FXComponent {
         lastMoveDestination = model.getLastMoveDestination();
 
         gridPane.getChildren().clear();
-        chessboard = convertBitboardsToCharArray(model.getBitboard().pieceBitboards);
+        chessboard = model.getBitboard().convertBitboardsToCharArray(model.getBitboard().pieceBitboards);
         this.render();
-    }
 
-    public char[] convertBitboardsToCharArray(long[] pieceBitboards) {
-        char[] board = new char[64];
-        for (int i = 0; i < 64; i++) {
-            board[i] = ' ';
+        // Check if the game has ended in checkmate
+        if (model.isCheckmate()) {
+            String winnerColor = !model.getCurrentTurn() ? "White" : "Black";
+            String message = "Checkmate! " + winnerColor + " wins the game.";
+            showAlertWithChoice(message);
         }
-
-        for (int i = 0; i < 64; i++) {
-            int index = (7 - (i / 8)) * 8 + (i % 8);
-            if ((pieceBitboards[0] >> i & 1) == 1) {
-                board[index] = 'K';
-            }
-            if ((pieceBitboards[1] >> i & 1) == 1) {
-                board[index] = 'Q';
-            }
-            if ((pieceBitboards[2] >> i & 1) == 1) {
-                board[index] = 'R';
-            }
-            if ((pieceBitboards[3] >> i & 1) == 1) {
-                board[index] = 'B';
-            }
-            if ((pieceBitboards[4] >> i & 1) == 1) {
-                board[index] = 'N';
-            }
-            if ((pieceBitboards[5] >> i & 1) == 1) {
-                board[index] = 'P';
-            }
-            if ((pieceBitboards[6] >> i & 1) == 1) {
-                board[index] = 'k';
-            }
-            if ((pieceBitboards[7] >> i & 1) == 1) {
-                board[index] = 'q';
-            }
-            if ((pieceBitboards[8] >> i & 1) == 1) {
-                board[index] = 'r';
-            }
-            if ((pieceBitboards[9] >> i & 1) == 1) {
-                board[index] = 'b';
-            }
-            if ((pieceBitboards[10] >> i & 1) == 1) {
-                board[index] = 'n';
-            }
-            if ((pieceBitboards[11] >> i & 1) == 1) {
-                board[index] = 'p';
+        // Check if the game has ended in a draw
+        else if (model.isDraw()) {
+            String drawReason = getDrawReason(model);
+            String message = "The game ended in a draw due to " + drawReason;
+            showAlertWithChoice(message);
+        } else {
+            System.out.println("hi");
+            System.out.println(model.getSelectedPlayer());
+            System.out.println(model.getCurrentTurn());
+            if (model.getSelectedPlayer() != model.getCurrentTurn()) {
+                Timeline timeline = new Timeline(new KeyFrame(Duration.millis(100), event -> controller.botTurn()));
+                timeline.play();
             }
         }
-
-        return board;
     }
 
     private void highlightSquare(Rectangle rectangle) {
@@ -323,5 +322,144 @@ public class ChessboardView implements ModelObserver, FXComponent {
 
     private void flipBoard() {
         orientation = !orientation;
+    }
+
+    @Override
+    public void updatePromotion(int promotionSquare) {
+        // Create a PromotionView for selecting the promoted piece type
+        PromotionView promotionView = new PromotionView(promotionSquare);
+
+        // Disable mouse events on the board during pawn promotion
+        disableMouseEvents(true);
+
+        // Set the onPromotion event listener for handling the promotion selection
+        promotionView.setOnPromotion(
+                event -> {
+                    // Get the selected piece type from the PawnPromotionView
+                    char promotedPiece = promotionView.getSelectedPiece();
+
+                    // Enable mouse events on the board again
+                    disableMouseEvents(false);
+
+                    // Update the model with the promoted piece type (or default to QUEEN)
+                    if (model.getCurrentTurn()) {
+                        model.setPromotedPiece(
+                                Objects.requireNonNullElse(promotedPiece, 'Q'));
+                    } else {
+                        model.setPromotedPiece(Objects.requireNonNullElse(promotedPiece, 'q'));
+                    }
+                });
+
+        // Show the PawnPromotionView to allow the player to select the promoted piece type
+        promotionView.show();
+    }
+
+    private void showColorSelectionDialog() {
+        // Create an alert dialog
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Color Selection");
+        alert.setHeaderText("Choose your color");
+        alert.setContentText("Select the color you want to play as:");
+
+        // Set the stage properties
+        Stage stage = (Stage) alert.getDialogPane().getScene().getWindow();
+        stage.initModality(Modality.APPLICATION_MODAL);
+        stage.initStyle(StageStyle.UNDECORATED);
+
+        // Create button types for color selection
+        ButtonType whiteButton = new ButtonType("White");
+        ButtonType blackButton = new ButtonType("Black");
+
+        // Set the button types for the dialog
+        alert.getButtonTypes().setAll(whiteButton, blackButton);
+
+        // Handle the dialog close event
+        stage.setOnCloseRequest(
+                event -> {
+                    Platform.exit();
+                    System.exit(0);
+                });
+
+        // Show the dialog and handle the button selection
+        alert
+                .showAndWait()
+                .ifPresent(
+                        buttonType -> {
+                            if (buttonType == blackButton) {
+                                // Flip the board if Black is selected
+                                this.flipBoard();
+                                model.setSelectedPlayer(false);
+                                Timeline timeline = new Timeline(new KeyFrame(Duration.millis(1500), event -> controller.botTurn()));
+                                timeline.play();
+                            }
+                        });
+    }
+
+    private void showAlertWithChoice(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Game Over");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        ButtonType playAgainButton = new ButtonType("Play Again");
+        ButtonType exitButton = new ButtonType("Exit");
+        alert.getButtonTypes().setAll(playAgainButton, exitButton);
+
+        // Show the alert dialog and wait for it to close
+        Platform.runLater(() -> alert
+                .showAndWait()
+                .ifPresent(
+                        buttonType -> {
+                            // Check the selected button and perform the corresponding action
+                            if (buttonType == playAgainButton) {
+                                startNewGame();
+                            } else if (buttonType == exitButton) {
+                                System.exit(0);
+                            }
+                        }));
+    }
+
+    private void startNewGame() {
+        Stage currentStage = (Stage) gridPane.getScene().getWindow();
+        currentStage.close(); // Close the current stage
+
+        // Create a new instance of the game model, controller, and board view
+        Model newModel = new Model();
+        Controller newController = new Controller(newModel);
+        ChessboardView newChessboardView = new ChessboardView(newModel, newController);
+
+        // Register the new board view as an observer of the new model
+        newModel.addObserver(newChessboardView);
+
+        // Render the new game board
+        Parent newBoardParent = newChessboardView.render();
+
+        // Create a new scene with the rendered game board
+        Scene newScene = new Scene(newBoardParent);
+
+        // Create a new stage for the game window
+        Stage newStage = new Stage();
+
+        // Set the scene and title for the new stage
+        newStage.setScene(newScene);
+        newStage.setTitle("Improved Chess Game");
+
+        // Show the new game window
+        newStage.show();
+    }
+
+    private String getDrawReason(Model model) {
+        // Determine reason for the game ending in a draw
+        if (model.isStalemate()) {
+            return "stalemate";
+        } else if (model.isFiftyMoveDraw()) {
+            return "fifty-move rule";
+        } else if (model.isInsufficientMaterial()) {
+            return "insufficient material";
+        } else if (model.isThreeFoldRepetition()) {
+            return "three-fold repetition";
+        } else {
+            return "unknown reason";
+        }
     }
 }
