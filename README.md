@@ -6,7 +6,7 @@ This project is an implementation of a fully functional chess engine with a play
 
 - Play chess against the computer with a playable AI.
 - Support for standard chess rules including castling, en passant, and pawn promotion.
-- Interactive command-line interface for playing and controlling the game.
+- Interactive graphical-user interface for playing and controlling the game.
 
 ## Project Structure
 
