@@ -67,34 +67,57 @@ public class Bitboard {
   static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
   public long[] pieceBitboards;
   public long attackMap;
+  public boolean currentTurn;
+  public boolean whiteKingSide;
+  public boolean whiteQueenSide;
+  public boolean blackKingSide;
+  public boolean blackQueenSide;
   private long occupied;
   private long empty;
   private long whitePieces;
   private long blackPieces;
   private long enPassantSquare;
-  public boolean currentTurn;
   private Map<Character, List<Move>> possibleMoves;
-  public boolean whiteKingSide;
-  public boolean whiteQueenSide;
-  public boolean blackKingSide;
-  public boolean blackQueenSide;
 
-  public Bitboard() {
-    char[] chessBoard = startingBoard();
-    this.pieceBitboards = convertCharArrayToBitboards(chessBoard);
-    this.currentTurn = true;
-    this.whiteKingSide = true;
-    this.whiteQueenSide = true;
-    this.blackKingSide = true;
-    this.blackQueenSide = true;
+  public Bitboard(String fen) {
+    fenConverter(fen);
     this.enPassantSquare = 0L;
     this.possibleMoves = new HashMap<>();
+
     setWhitePieces();
     setBlackPieces();
     setOccupied();
     setEmpty();
     generatePossibleMoves();
     setEnemyAttackMap();
+  }
+
+  public void fenConverter(String fen) {
+    fen = fen.replace("/", "");
+    char[] board = new char[64];
+    int index = 0;
+    for (int i = 0; i < fen.length(); i++) {
+      if (Character.isDigit(fen.charAt(i))) {
+        int num = Character.getNumericValue(fen.charAt(i));
+        for (int j = 0; j < num; j++) {
+          board[index + j] = ' ';
+        }
+        index += num;
+      } else {
+        board[index] = fen.charAt(i);
+        index++;
+      }
+      if (index == 64) {
+        fen = fen.substring(i + 1);
+        break;
+      }
+    }
+    this.pieceBitboards = convertCharArrayToBitboards(board);
+    this.currentTurn = fen.contains("w");
+    this.whiteKingSide = fen.contains("K");
+    this.whiteQueenSide = fen.contains("Q");
+    this.blackKingSide = fen.contains("k");
+    this.blackQueenSide = fen.contains("q");
   }
 
   public char[] startingBoard() {
@@ -178,7 +201,7 @@ public class Bitboard {
         }
       }
       if (pieceBitboards[11] != 0L) {
-        attackMap |= blackPawnCapture(pieceBitboards[11]);
+        attackMap |= blackPawnCapture(pieceBitboards[11], true);
       }
     } else {
       if (pieceBitboards[0] != 0L) {
@@ -209,7 +232,7 @@ public class Bitboard {
         }
       }
       if (pieceBitboards[5] != 0L) {
-        attackMap |= whitePawnCapture(pieceBitboards[5]);
+        attackMap |= whitePawnCapture(pieceBitboards[5], true);
       }
     }
 
@@ -224,7 +247,6 @@ public class Bitboard {
     long bitPosition = convertIntToBitboard(square);
     return (bitPosition & occupied) != 0L;
   }
-
 
   public char[] convertBitboardsToCharArray(long[] pieceBitboards) {
     char[] board = new char[64];
@@ -386,7 +408,7 @@ public class Bitboard {
           moveList.add(move);
         }
       }
-      long captureDestinationsBitboard = whitePawnCapture(pawn);
+      long captureDestinationsBitboard = whitePawnCapture(pawn, false);
       int[] captureDestinations = convertBitboardToArrayOfIndexes(captureDestinationsBitboard);
       for (int destination : captureDestinations) {
         long destinationBitboard = convertIntToBitboard(destination);
@@ -436,7 +458,7 @@ public class Bitboard {
           moveList.add(move);
         }
       }
-      long captureDestinationsBitboard = blackPawnCapture(pawn);
+      long captureDestinationsBitboard = blackPawnCapture(pawn, false);
       int[] captureDestinations = convertBitboardToArrayOfIndexes(captureDestinationsBitboard);
       for (int destination : captureDestinations) {
         long destinationBitboard = convertIntToBitboard(destination);
@@ -455,20 +477,30 @@ public class Bitboard {
         } else {
           Move move = new Move(origin, destination, 'p');
           moveList.add(move);
-
         }
       }
     }
     return moveList;
   }
 
-  public long whitePawnCapture(long whitePawn) {
+  public long whitePawnCapture(long whitePawn, boolean isAttackMap) {
+    if (isAttackMap) {
+      long leftCaptures = ((whitePawn & ~fileMasks[0]) << 7);
+      long rightCaptures = ((whitePawn & ~fileMasks[7]) << 9);
+      return leftCaptures | rightCaptures;
+    }
+
     long leftCaptures = ((whitePawn & ~fileMasks[0]) << 7) & (blackPieces | enPassantSquare);
     long rightCaptures = ((whitePawn & ~fileMasks[7]) << 9) & (blackPieces | enPassantSquare);
     return leftCaptures | rightCaptures;
   }
 
-  public long blackPawnCapture(long blackPawn) {
+  public long blackPawnCapture(long blackPawn, boolean isAttackMap) {
+    if (isAttackMap) {
+      long leftCaptures = ((blackPawn & ~fileMasks[7]) >> 7);
+      long rightCaptures = ((blackPawn & ~fileMasks[0]) >> 9);
+      return leftCaptures | rightCaptures;
+    }
     long leftCaptures = (blackPawn & ~fileMasks[7]) >> 7 & (whitePieces | enPassantSquare);
     long rightCaptures = (blackPawn & ~fileMasks[0]) >> 9 & (whitePieces | enPassantSquare);
     return leftCaptures | rightCaptures;
@@ -688,23 +720,33 @@ public class Bitboard {
 
     if (color) {
       if (whiteKingSide) {
-        if (((attackMap & whiteKingSideMask) == 0L) & (((king << 1) & occupied) == 0L) & (((king << 2) & occupied) == 0L)) {
+        if (((attackMap & whiteKingSideMask) == 0L)
+            & (((king << 1) & occupied) == 0L)
+            & (((king << 2) & occupied) == 0L)) {
           kingSideCastle = king << 2;
         }
       }
       if (whiteQueenSide) {
-        if (((attackMap & whiteQueenSideMask) == 0L) & (((king >> 1) & occupied) == 0L) & (((king >> 2) & occupied) == 0L)) {
+        if (((attackMap & whiteQueenSideMask) == 0L)
+            & (((king >> 1) & occupied) == 0L)
+            & (((king >> 2) & occupied) == 0L)
+            & (((king >> 3) & occupied) == 0L)) {
           queenSideCastle = king >> 2;
         }
       }
     } else {
       if (blackKingSide) {
-        if (((attackMap & blackKingSideMask) == 0L) & (((king << 1) & occupied) == 0L) & (((king << 2) & occupied) == 0L)) {
+        if (((attackMap & blackKingSideMask) == 0L)
+            & (((king << 1) & occupied) == 0L)
+            & (((king << 2) & occupied) == 0L)) {
           kingSideCastle = king << 2;
         }
       }
       if (blackQueenSide) {
-        if (((attackMap & blackQueenSideMask) == 0L) & (((king >> 1) & occupied) == 0L) & (((king >> 2) & occupied) == 0L)) {
+        if (((attackMap & blackQueenSideMask) == 0L)
+            & (((king >> 1) & occupied) == 0L)
+            & (((king >> 2) & occupied) == 0L)
+            & (((king >> 3) & occupied) == 0L)) {
           queenSideCastle = king >> 2;
         }
       }

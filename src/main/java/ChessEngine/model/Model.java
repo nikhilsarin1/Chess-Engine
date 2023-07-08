@@ -5,6 +5,9 @@ import java.util.*;
 public class Model {
   private final Bitboard bitboard;
   private final List<ModelObserver> observers;
+  private final Stack<MoveInfo> moveStack;
+  public Map<String, Integer> boardState;
+  public boolean searching;
   private boolean currentTurn;
   private boolean selectedPlayer;
   private int lastMoveOrigin;
@@ -12,18 +15,17 @@ public class Model {
   private Map<Character, List<Move>> legalMoves;
   private char promotedPiece;
   private int moveCount;
-  private Map<String, Integer> boardState;
-  private Stack<MoveInfo> moveStack;
 
-  public Model() {
-    this.bitboard = new Bitboard();
+  public Model(String fen) {
+    this.bitboard = new Bitboard(fen);
     this.observers = new ArrayList<>();
-    this.currentTurn = true;
+    this.currentTurn = bitboard.currentTurn;
     this.promotedPiece = ' ';
     this.moveCount = 0;
     this.boardState = new HashMap<>();
     this.moveStack = new Stack<>();
     this.selectedPlayer = true;
+    this.searching = false;
     generateLegalMoves();
   }
 
@@ -98,7 +100,8 @@ public class Model {
 
   public void movePiece(Move move, boolean isActualMove) {
     MoveInfo moveInfo = new MoveInfo();
-    moveInfo.pieceBitboards = Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
+    moveInfo.pieceBitboards =
+        Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
     moveInfo.BK = bitboard.blackKingSide;
@@ -128,8 +131,8 @@ public class Model {
         bitboard.pieceBitboards[0] ^= originBitboard;
         bitboard.pieceBitboards[0] |= destinationBitboard;
 
-          bitboard.whiteKingSide = false;
-          bitboard.whiteQueenSide = false;
+        bitboard.whiteKingSide = false;
+        bitboard.whiteQueenSide = false;
 
         if (move.isKingSideCastle()) {
           long removeRook = bitboard.convertIntToBitboard(63);
@@ -176,7 +179,7 @@ public class Model {
         }
         if (move.getPromotion() != ' ') {
           promotedPiece = move.getPromotion();
-          if (isActualMove) {
+          if (isActualMove && !searching) {
             notifyPromotion(destination);
           }
           switch (promotedPiece) {
@@ -204,8 +207,8 @@ public class Model {
         bitboard.pieceBitboards[6] ^= originBitboard;
         bitboard.pieceBitboards[6] |= destinationBitboard;
 
-          bitboard.blackKingSide = false;
-          bitboard.blackQueenSide = false;
+        bitboard.blackKingSide = false;
+        bitboard.blackQueenSide = false;
 
         if (move.isKingSideCastle()) {
           long removeRook = bitboard.convertIntToBitboard(7);
@@ -286,8 +289,6 @@ public class Model {
       } else {
         moveCount++;
       }
-      String str = generateBoardState();
-      boardState.put(str, boardState.getOrDefault(str, 0) + 1);
       lastMoveOrigin = origin;
       lastMoveDestination = destination;
       changeTurn();
@@ -295,7 +296,6 @@ public class Model {
       bitboard.updateBitboard();
       bitboard.generatePossibleMoves();
       generateLegalMoves();
-      notifyObservers();
     }
   }
 
@@ -353,9 +353,9 @@ public class Model {
 
   public boolean isDraw() {
     return isStalemate()
-            || isFiftyMoveDraw()
-            || isInsufficientMaterial()
-            || isThreeFoldRepetition();
+        || isFiftyMoveDraw()
+        || isInsufficientMaterial()
+        || isThreeFoldRepetition();
   }
 
   public boolean isStalemate() {
@@ -378,8 +378,9 @@ public class Model {
         | bitboard.pieceBitboards[11] != 0L) {
       return false;
     }
-    return (Long.bitCount(bitboard.pieceBitboards[3]) + Long.bitCount(bitboard.pieceBitboards[4]) <= 1)
-            && (Long.bitCount(bitboard.pieceBitboards[9]) + Long.bitCount(bitboard.pieceBitboards[10]))
+    return (Long.bitCount(bitboard.pieceBitboards[3]) + Long.bitCount(bitboard.pieceBitboards[4])
+            <= 1)
+        && (Long.bitCount(bitboard.pieceBitboards[9]) + Long.bitCount(bitboard.pieceBitboards[10]))
             <= 1;
   }
 
@@ -392,10 +393,55 @@ public class Model {
     return false;
   }
 
+  public String getMoveNotation(int origin, int destination) {
+    StringBuilder move = new StringBuilder();
+
+    switch (origin % 8) {
+      case 0 -> move.append("a");
+      case 1 -> move.append("b");
+      case 2 -> move.append("c");
+      case 3 -> move.append("d");
+      case 4 -> move.append("e");
+      case 5 -> move.append("f");
+      case 6 -> move.append("g");
+      case 7 -> move.append("h");
+    }
+    switch (origin / 8) {
+      case 0 -> move.append("8");
+      case 1 -> move.append("7");
+      case 2 -> move.append("6");
+      case 3 -> move.append("5");
+      case 4 -> move.append("4");
+      case 5 -> move.append("3");
+      case 6 -> move.append("2");
+      case 7 -> move.append("1");
+    }
+    switch (destination % 8) {
+      case 0 -> move.append("a");
+      case 1 -> move.append("b");
+      case 2 -> move.append("c");
+      case 3 -> move.append("d");
+      case 4 -> move.append("e");
+      case 5 -> move.append("f");
+      case 6 -> move.append("g");
+      case 7 -> move.append("h");
+    }
+    switch (destination / 8) {
+      case 0 -> move.append("8");
+      case 1 -> move.append("7");
+      case 2 -> move.append("6");
+      case 3 -> move.append("5");
+      case 4 -> move.append("4");
+      case 5 -> move.append("3");
+      case 6 -> move.append("2");
+      case 7 -> move.append("1");
+    }
+    return move.toString();
+  }
+
   public String generateBoardState() {
     char[] board = bitboard.convertBitboardsToCharArray(bitboard.pieceBitboards);
-    String str = new String(board);
-    return str;
+    return new String(board);
   }
 
   public void addObserver(ModelObserver observer) {

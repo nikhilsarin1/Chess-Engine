@@ -8,10 +8,10 @@ import javafx.scene.Parent;
  */
 public interface FXComponent {
 
-    /**
-     * Renders the JavaFX component and returns its root Parent node.
-     *
-     * @return the root Parent node of the rendered component
-     */
-    Parent render();
+  /**
+   * Renders the JavaFX component and returns its root Parent node.
+   *
+   * @return the root Parent node of the rendered component
+   */
+  Parent render();
 }
