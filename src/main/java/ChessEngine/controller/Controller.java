@@ -10,8 +10,6 @@ public class Controller {
   private final Model model;
   private final AI bot;
   private int origin;
-  private char originPiece;
-
   public Controller(Model model) {
     this.model = model;
     this.origin = -1;
@@ -26,19 +24,18 @@ public class Controller {
     origin = -1;
   }
 
-  public void clickOrigin(int square, char piece) {
+  public void clickOrigin(int square) {
     if (!model.getBitboard().isOccupiedSquare(square)) {
       throw new IllegalArgumentException();
     }
     this.origin = square;
-    this.originPiece = piece;
   }
 
   public void clickDestination(int square) {
-    if (!model.isMoveValid(origin, square, originPiece)) {
+    if (!model.isMoveValid(origin, square)) {
       throw new IllegalArgumentException();
     }
-    List<Move> moves = model.getLegalMoves().get(originPiece);
+    List<Move> moves = model.getBitboard().getLegalMoves();
     Move selectedMove = null;
     for (Move move : moves) {
       if (move.getOrigin() == origin && move.getDestination() == square) {

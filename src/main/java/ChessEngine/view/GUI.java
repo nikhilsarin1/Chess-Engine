@@ -20,7 +20,8 @@ public class GUI extends Application {
     // Create a new instance of the Controller class, passing the model as a parameter
     Controller controller = new Controller(model);
 
-    // Create a new instance of the chessboardView class, passing the model and controller as parameters
+    // Create a new instance of the chessboardView class, passing the model and controller as
+    // parameters
     ChessboardView chessboardView = new ChessboardView(model, controller);
 
     // Add the chessboardView as an observer to the model

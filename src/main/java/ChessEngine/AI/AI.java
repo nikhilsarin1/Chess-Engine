@@ -3,9 +3,6 @@ package ChessEngine.AI;
 import ChessEngine.model.Model;
 import ChessEngine.model.Move;
 
-import java.util.List;
-import java.util.Map;
-
 public class AI {
   final int pawnValue = 100;
   final int knightValue = 300;
@@ -69,9 +66,12 @@ public class AI {
         int position = model.getBitboard().convertBitboardToInt(pawn);
         material += pawnValue + pieceTables.getPawnSquareValue(true, position);
       }
-      long king = model.getBitboard().pieceBitboards[0];
-      int position = model.getBitboard().convertBitboardToInt(king);
-      material += pieceTables.getKingSquareValue(true, position);
+      long[] kings =
+          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[0]);
+      for (long king : kings) {
+        int position = model.getBitboard().convertBitboardToInt(king);
+        material += pieceTables.getKingSquareValue(true, position);
+      }
     } else {
       long[] queens =
           model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[7]);
@@ -103,9 +103,12 @@ public class AI {
         int position = model.getBitboard().convertBitboardToInt(pawn);
         material += pawnValue + pieceTables.getPawnSquareValue(false, position);
       }
-      long king = model.getBitboard().pieceBitboards[6];
-      int position = model.getBitboard().convertBitboardToInt(king);
-      material += pieceTables.getKingSquareValue(false, position);
+      long[] kings =
+          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[6]);
+      for (long king : kings) {
+        int position = model.getBitboard().convertBitboardToInt(king);
+        material += pieceTables.getKingSquareValue(false, position);
+      }
     }
     return material;
   }
@@ -125,25 +128,21 @@ public class AI {
 
     int bestEvaluation = -999999999;
 
-    for (Map.Entry<Character, List<Move>> entry : model.getLegalMoves().entrySet()) {
-      List<Move> pieceMoves = entry.getValue();
+    for (Move possibleMove : model.getBitboard().getLegalMoves()) {
+      searchCount++;
+      model.movePiece(possibleMove, true);
+      int evaluation = -search(depth - 1, -beta, -alpha);
+      model.undoMove();
 
-      for (Move possibleMove : pieceMoves) {
-        searchCount++;
-        model.movePiece(possibleMove, true);
-        int evaluation = -search(depth - 1, -beta, -alpha);
-        model.undoMove();
+      if (evaluation > bestEvaluation) {
+        bestEvaluation = evaluation;
+        move = possibleMove;
+      }
 
-        if (evaluation > bestEvaluation) {
-          bestEvaluation = evaluation;
-          move = possibleMove;
-        }
-
-        alpha = Math.max(alpha, evaluation);
-        if (alpha >= beta) {
-          // Beta cutoff
-          break;
-        }
+      alpha = Math.max(alpha, evaluation);
+      if (alpha > beta) {
+        // Beta cutoff
+        break;
       }
     }
 
@@ -157,12 +156,17 @@ public class AI {
       searchCount++;
       return; // Return value doesn't matter in this context
     }
-    for (Map.Entry<Character, List<Move>> entry : model.getLegalMoves().entrySet()) {
-      List<Move> pieceMoves = entry.getValue();
-      for (Move possibleMove : pieceMoves) {
-        model.movePiece(possibleMove, true);
-        fullSearch(depth - 1);
-        model.undoMove();
+    for (Move possibleMove : model.getBitboard().getLegalMoves()) {
+      model.movePiece(possibleMove, true);
+      fullSearch(depth - 1);
+      model.undoMove();
+
+      if (depth == -1) { // Set to desired depth to get move breakdowns
+        System.out.println(
+            model.getMoveNotation(possibleMove.getOrigin(), possibleMove.getDestination())
+                + ": "
+                + leafNodeCount);
+        leafNodeCount = 0;
       }
     }
   }

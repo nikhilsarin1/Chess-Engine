@@ -96,7 +96,7 @@ public class ChessboardView implements ModelObserver, FXComponent {
                     || (!model.getCurrentTurn() && Character.isLowerCase(chessboard[square])))
                 && !isFlashing) {
               // Clicked on an occupied square to set the origin and highlight the square
-              controller.clickOrigin(square, chessboard[square]);
+              controller.clickOrigin(square);
               highlightSquare(rectangle);
               originRectangle = rectangle;
             } else if (controller.getOrigin() != -1

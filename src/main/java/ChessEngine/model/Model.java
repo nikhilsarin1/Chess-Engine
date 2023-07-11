@@ -12,7 +12,6 @@ public class Model {
   private boolean selectedPlayer;
   private int lastMoveOrigin;
   private int lastMoveDestination;
-  private Map<Character, List<Move>> legalMoves;
   private char promotedPiece;
   private int moveCount;
 
@@ -26,7 +25,6 @@ public class Model {
     this.moveStack = new Stack<>();
     this.selectedPlayer = true;
     this.searching = false;
-    generateLegalMoves();
   }
 
   public Bitboard getBitboard() {
@@ -53,10 +51,6 @@ public class Model {
     selectedPlayer = color;
   }
 
-  public Map<Character, List<Move>> getLegalMoves() {
-    return this.legalMoves;
-  }
-
   public void setPromotedPiece(char piece) {
     promotedPiece = piece;
   }
@@ -65,32 +59,8 @@ public class Model {
     currentTurn = !currentTurn;
   }
 
-  public void generateLegalMoves() {
-    Map<Character, List<Move>> legalMoves = new HashMap<>();
-    Map<Character, List<Move>> possibleMoves = bitboard.getPossibleMoves();
-
-    for (Map.Entry<Character, List<Move>> entry : possibleMoves.entrySet()) {
-      List<Move> pieceLegalMoves = new ArrayList<>();
-      Character piece = entry.getKey();
-      List<Move> pieceMoves = entry.getValue();
-      for (Move pieceMove : pieceMoves) {
-        if (notInCheck(pieceMove)) {
-          pieceLegalMoves.add(pieceMove);
-        }
-      }
-      if (!pieceLegalMoves.isEmpty()) {
-        legalMoves.put(piece, pieceLegalMoves);
-      }
-    }
-    this.legalMoves = legalMoves;
-  }
-
-  public boolean isMoveValid(int origin, int destination, char piece) {
-    if (legalMoves.get(piece) == null) {
-      return false;
-    }
-    List<Move> pieceMoves = legalMoves.get(piece);
-    for (Move move : pieceMoves) {
+  public boolean isMoveValid(int origin, int destination) {
+    for (Move move : this.getBitboard().getLegalMoves()) {
       if (move.getOrigin() == origin && move.getDestination() == destination) {
         return true;
       }
@@ -124,6 +94,13 @@ public class Model {
         resetMoveCount = true;
         break; // Exit the loop since only one piece can be captured
       }
+    }
+
+    switch (destination) {
+      case 63 -> bitboard.whiteKingSide = false;
+      case 56 -> bitboard.whiteQueenSide = false;
+      case 7 -> bitboard.blackKingSide = false;
+      case 0 -> bitboard.blackQueenSide = false;
     }
 
     switch (piece) {
@@ -255,7 +232,7 @@ public class Model {
         }
         if (move.getPromotion() != ' ') {
           promotedPiece = move.getPromotion();
-          if (isActualMove) {
+          if (isActualMove & !searching) {
             notifyPromotion(destination);
           }
           switch (promotedPiece) {
@@ -280,10 +257,9 @@ public class Model {
         }
       }
     }
-    moveStack.push(moveInfo);
 
-    bitboard.updateBitboard();
     if (isActualMove) {
+      moveStack.push(moveInfo);
       if (resetMoveCount) {
         moveCount = 0;
       } else {
@@ -294,8 +270,7 @@ public class Model {
       changeTurn();
       bitboard.changeTurn();
       bitboard.updateBitboard();
-      bitboard.generatePossibleMoves();
-      generateLegalMoves();
+      bitboard.generateLegalMoves();
     }
   }
 
@@ -311,8 +286,7 @@ public class Model {
     currentTurn = moveInfo.currentTurn;
     bitboard.currentTurn = currentTurn;
     bitboard.updateBitboard();
-    bitboard.generatePossibleMoves();
-    generateLegalMoves();
+    bitboard.generateLegalMoves();
   }
 
   public boolean isCheck() {
@@ -320,35 +294,11 @@ public class Model {
     return (bitboard.attackMap & king) != 0L;
   }
 
-  public boolean notInCheck(Move pieceMove) {
-    long[] savedPieceBitboards =
-        Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
-    boolean saveWK = bitboard.whiteKingSide;
-    boolean saveWQ = bitboard.whiteQueenSide;
-    boolean saveBK = bitboard.blackKingSide;
-    boolean saveBQ = bitboard.blackQueenSide;
-    long saveEnPassantSquare = bitboard.getEnPassantSquare();
-
-    boolean check;
-
-    movePiece(pieceMove, false);
-    check = !isCheck();
-    bitboard.pieceBitboards = savedPieceBitboards;
-    bitboard.whiteKingSide = saveWK;
-    bitboard.whiteQueenSide = saveWQ;
-    bitboard.blackKingSide = saveBK;
-    bitboard.blackQueenSide = saveBQ;
-    bitboard.setEnPassantSquare(saveEnPassantSquare);
-    bitboard.updateBitboard();
-    moveStack.pop();
-    return check;
-  }
-
   public boolean isCheckmate() {
     if (!isCheck()) {
       return false;
     }
-    return legalMoves.isEmpty();
+    return this.getBitboard().getLegalMoves().isEmpty();
   }
 
   public boolean isDraw() {
@@ -362,7 +312,7 @@ public class Model {
     if (isCheck()) {
       return false;
     }
-    return legalMoves.isEmpty();
+    return this.getBitboard().getLegalMoves().isEmpty();
   }
 
   public boolean isFiftyMoveDraw() {

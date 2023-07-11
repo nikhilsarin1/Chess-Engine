@@ -1,9 +1,6 @@
 package ChessEngine.model;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Bitboard {
   static long[] fileMasks = {
@@ -67,6 +64,10 @@ public class Bitboard {
   static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
   public long[] pieceBitboards;
   public long attackMap;
+  public int attackingPieces;
+  public long attackRay;
+  public long pinnedPieces;
+  public Map<Long, Character> pinnedRays;
   public boolean currentTurn;
   public boolean whiteKingSide;
   public boolean whiteQueenSide;
@@ -77,19 +78,14 @@ public class Bitboard {
   private long whitePieces;
   private long blackPieces;
   private long enPassantSquare;
-  private Map<Character, List<Move>> possibleMoves;
+  private List<Move> legalMoves;
 
   public Bitboard(String fen) {
     fenConverter(fen);
     this.enPassantSquare = 0L;
-    this.possibleMoves = new HashMap<>();
-
-    setWhitePieces();
-    setBlackPieces();
-    setOccupied();
-    setEmpty();
-    generatePossibleMoves();
-    setEnemyAttackMap();
+    this.legalMoves = new ArrayList<>();
+    updateBitboard();
+    generateLegalMoves();
   }
 
   public void fenConverter(String fen) {
@@ -134,6 +130,9 @@ public class Bitboard {
   }
 
   public void updateBitboard() {
+    this.attackRay = 0xFFFFFFFFFFFFFFFFL;
+    this.attackingPieces = 0;
+    this.pinnedPieces = 0L;
     setWhitePieces();
     setBlackPieces();
     setOccupied();
@@ -145,98 +144,297 @@ public class Bitboard {
     currentTurn = !currentTurn;
   }
 
-  public Map<Character, List<Move>> getPossibleMoves() {
-    return possibleMoves;
+  public List<Move> getLegalMoves() {
+    return legalMoves;
   }
 
-  public void generatePossibleMoves() {
-    Map<Character, List<Move>> moves = new HashMap<>();
+  public void generateLegalMoves() {
+    List<Move> legalMoves = new ArrayList<>();
     if (currentTurn) {
-      moves.put('K', kingMoves(pieceBitboards[0], true));
-      moves.put('Q', queenMoves(pieceBitboards[1], true));
-      moves.put('R', rookMoves(pieceBitboards[2], true));
-      moves.put('B', bishopMoves(pieceBitboards[3], true));
-      moves.put('N', knightMoves(pieceBitboards[4], true));
-      moves.put('P', whitePawnMoves(pieceBitboards[5]));
+      if (attackingPieces == 2) {
+        legalMoves.addAll(kingMoves(pieceBitboards[0], true));
+      } else {
+        legalMoves.addAll(kingMoves(pieceBitboards[0], true));
+        legalMoves.addAll(queenMoves(pieceBitboards[1], true));
+        legalMoves.addAll(rookMoves(pieceBitboards[2], true));
+        legalMoves.addAll(bishopMoves(pieceBitboards[3], true));
+        legalMoves.addAll(knightMoves(pieceBitboards[4], true));
+        legalMoves.addAll(whitePawnMoves(pieceBitboards[5]));
+      }
     } else {
-      moves.put('k', kingMoves(pieceBitboards[6], false));
-      moves.put('q', queenMoves(pieceBitboards[7], false));
-      moves.put('r', rookMoves(pieceBitboards[8], false));
-      moves.put('b', bishopMoves(pieceBitboards[9], false));
-      moves.put('n', knightMoves(pieceBitboards[10], false));
-      moves.put('p', blackPawnMoves(pieceBitboards[11]));
+      if (attackingPieces == 2) {
+        legalMoves.addAll(kingMoves(pieceBitboards[6], false));
+      } else {
+        legalMoves.addAll(kingMoves(pieceBitboards[6], false));
+        legalMoves.addAll(queenMoves(pieceBitboards[7], false));
+        legalMoves.addAll(rookMoves(pieceBitboards[8], false));
+        legalMoves.addAll(bishopMoves(pieceBitboards[9], false));
+        legalMoves.addAll(knightMoves(pieceBitboards[10], false));
+        legalMoves.addAll(blackPawnMoves(pieceBitboards[11]));
+      }
     }
-    possibleMoves = moves;
+    this.legalMoves = legalMoves;
   }
 
   public void setEnemyAttackMap() {
     long attackMap = 0L;
+    long attackRay = 0xFFFFFFFFFFFFFFFFL;
+    int attackingPieces = 0;
+    long pinnedPieces = 0L;
+    this.pinnedRays = new HashMap<>();
 
     if (currentTurn) {
+      long king = pieceBitboards[0];
       if (pieceBitboards[6] != 0L) {
-        attackMap |= kingMove(pieceBitboards[6], false);
+        attackMap |= kingMove(pieceBitboards[6], false, true);
+        if ((king & kingMove(pieceBitboards[6], false, true)) != 0L) {
+          attackingPieces |= pieceBitboards[6];
+        }
       }
       if (pieceBitboards[7] != 0L) {
         long[] individualQueens = getIndividualPieceBitboards(pieceBitboards[7]);
         for (long queen : individualQueens) {
-          attackMap |= queenMove(queen, false);
+          attackMap |= queenMove(queen, false, true);
+          pinnedPieces |= setPinnedPiece(queen, 'q');
+          if ((king & queenMove(queen, false, true)) != 0L) {
+            attackRay = getDirectionalMask(queen, king, false);
+            attackMap |= getDirectionalMask(queen, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[8] != 0L) {
         long[] individualRooks = getIndividualPieceBitboards(pieceBitboards[8]);
         for (long rook : individualRooks) {
-          attackMap |= rookMove(rook, false);
+          attackMap |= rookMove(rook, false, true);
+          pinnedPieces |= setPinnedPiece(rook, 'r');
+          if ((king & rookMove(rook, false, true)) != 0L) {
+            attackRay = getDirectionalMask(rook, king, false);
+            attackMap |= getDirectionalMask(rook, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[9] != 0L) {
         long[] individualBishops = getIndividualPieceBitboards(pieceBitboards[9]);
         for (long bishop : individualBishops) {
-          attackMap |= bishopMove(bishop, false);
+          attackMap |= bishopMove(bishop, false, true);
+          pinnedPieces |= setPinnedPiece(bishop, 'b');
+          if ((king & bishopMove(bishop, false, true)) != 0L) {
+            attackRay = getDirectionalMask(bishop, king, false);
+            attackMap |= getDirectionalMask(bishop, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[10] != 0L) {
         long[] individualKnights = getIndividualPieceBitboards(pieceBitboards[10]);
         for (long knight : individualKnights) {
-          attackMap |= knightMove(knight, false);
+          attackMap |= knightMove(knight, false, true);
+          if ((king & knightMove(knight, false, true)) != 0L) {
+            attackRay = knight;
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[11] != 0L) {
         attackMap |= blackPawnCapture(pieceBitboards[11], true);
+        long[] individualPawns = getIndividualPieceBitboards(pieceBitboards[11]);
+        for (long pawn : individualPawns) {
+          if ((king & blackPawnCapture(pawn, true)) != 0L) {
+            attackRay = pawn;
+            attackingPieces++;
+          }
+        }
       }
     } else {
+      long king = pieceBitboards[6];
       if (pieceBitboards[0] != 0L) {
-        attackMap |= kingMove(pieceBitboards[0], true);
+        attackMap |= kingMove(pieceBitboards[0], true, true);
+        if ((king & kingMove(pieceBitboards[0], true, true)) != 0L) {
+          attackingPieces |= pieceBitboards[0];
+        }
       }
       if (pieceBitboards[1] != 0L) {
         long[] individualQueens = getIndividualPieceBitboards(pieceBitboards[1]);
         for (long queen : individualQueens) {
-          attackMap |= queenMove(queen, true);
+          attackMap |= queenMove(queen, true, true);
+          pinnedPieces |= setPinnedPiece(queen, 'Q');
+          if ((king & queenMove(queen, true, true)) != 0L) {
+            attackRay = getDirectionalMask(queen, king, false);
+            attackMap |= getDirectionalMask(queen, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[2] != 0L) {
         long[] individualRooks = getIndividualPieceBitboards(pieceBitboards[2]);
         for (long rook : individualRooks) {
-          attackMap |= rookMove(rook, true);
+          attackMap |= rookMove(rook, true, true);
+          pinnedPieces |= setPinnedPiece(rook, 'R');
+          if ((king & rookMove(rook, true, true)) != 0L) {
+            attackRay = getDirectionalMask(rook, king, false);
+            attackMap |= getDirectionalMask(rook, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[3] != 0L) {
         long[] individualBishops = getIndividualPieceBitboards(pieceBitboards[3]);
         for (long bishop : individualBishops) {
-          attackMap |= bishopMove(bishop, true);
+          attackMap |= bishopMove(bishop, true, true);
+          pinnedPieces |= setPinnedPiece(bishop, 'B');
+          if ((king & bishopMove(bishop, true, true)) != 0L) {
+            attackRay = getDirectionalMask(bishop, king, false);
+            attackMap |= getDirectionalMask(bishop, king, true);
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[4] != 0L) {
         long[] individualKnights = getIndividualPieceBitboards(pieceBitboards[4]);
         for (long knight : individualKnights) {
-          attackMap |= knightMove(knight, true);
+          attackMap |= knightMove(knight, true, true);
+          if ((king & knightMove(knight, true, true)) != 0L) {
+            attackRay = knight;
+            attackingPieces++;
+          }
         }
       }
       if (pieceBitboards[5] != 0L) {
         attackMap |= whitePawnCapture(pieceBitboards[5], true);
+        long[] individualPawns = getIndividualPieceBitboards(pieceBitboards[5]);
+        for (long pawn : individualPawns) {
+          if ((king & whitePawnCapture(pawn, true)) != 0L) {
+            attackRay = pawn;
+            attackingPieces++;
+          }
+        }
       }
     }
 
+    this.pinnedPieces = pinnedPieces;
+    this.attackRay = attackRay;
+    this.attackingPieces = attackingPieces;
     this.attackMap = attackMap;
+  }
+
+  public long setPinnedPiece(long piece, char pieceType) {
+    long pinPieces = Character.isUpperCase(pieceType) ? blackPieces : whitePieces;
+    long blockingPieces = Character.isUpperCase(pieceType) ? whitePieces : blackPieces;
+    pieceType = Character.toLowerCase(pieceType);
+    int position = Long.numberOfTrailingZeros(piece);
+    long king = currentTurn ? pieceBitboards[0] : pieceBitboards[6];
+    long bottomMask = (1L << Long.numberOfTrailingZeros(piece)) - 1;
+    long upperMask = ~bottomMask & ~piece;
+    long bottomKingMask = (1L << Long.numberOfTrailingZeros(king)) - 1;
+    long upperKingMask = ~bottomKingMask & ~king;
+    long diagonal = diagonalMasks[(position / 8) + (position % 8)];
+    long antiDiagonal = antiDiagonalMasks[(7 + (position / 8) - (position % 8))];
+
+    long north = (0x0101010101010100L) << position;
+    long south = (0x0080808080808080L) >> (position ^ 63);
+    long east = 2 * ((1L << (position | 7)) - (1L << position));
+    long west = (1L << position) - (1L << (position & 56));
+
+    long northEast = (antiDiagonal & upperMask) & ~piece;
+    long northWest = (diagonal & upperMask) & ~piece;
+    long southEast = (diagonal & bottomMask) & ~piece;
+    long southWest = (antiDiagonal & bottomMask) & ~piece;
+
+    if (pieceType == 'r' | pieceType == 'q') {
+      if ((north & king) != 0L) {
+        north &= bottomKingMask;
+        if ((Long.bitCount(north & pinPieces) == 1) & (north & blockingPieces) == 0L) {
+          pinnedRays.put(north & pinPieces, 'v');
+          return north & pinPieces;
+        }
+      } else if ((south & king) != 0L) {
+        south &= upperKingMask;
+        if ((Long.bitCount(south & pinPieces) == 1) & (south & blockingPieces) == 0L) {
+          pinnedRays.put(south & pinPieces, 'v');
+          return south & pinPieces;
+        }
+      } else if ((east & king) != 0L) {
+        east &= bottomKingMask;
+        if ((Long.bitCount(east & pinPieces) == 1) & (east & blockingPieces) == 0L) {
+          pinnedRays.put(east & pinPieces, 'h');
+          return east & pinPieces;
+        }
+      } else if ((west & king) != 0L) {
+        west &= upperKingMask;
+        if ((Long.bitCount(west & pinPieces) == 1) & (west & blockingPieces) == 0L) {
+          pinnedRays.put(west & pinPieces, 'h');
+          return west & pinPieces;
+        }
+      }
+    }
+    if (pieceType == 'b' | pieceType == 'q') {
+      if ((northEast & king) != 0L) {
+        northEast &= bottomKingMask;
+        if ((Long.bitCount(northEast & pinPieces) == 1) & (northEast & blockingPieces) == 0L) {
+          pinnedRays.put(northEast & pinPieces, 'a');
+          return northEast & pinPieces;
+        }
+      } else if ((northWest & king) != 0L) {
+        northWest &= bottomKingMask;
+        if ((Long.bitCount(northWest & pinPieces) == 1) & (northWest & blockingPieces) == 0L) {
+          pinnedRays.put(northWest & pinPieces, 'd');
+          return northWest & pinPieces;
+        }
+      } else if ((southEast & king) != 0L) {
+        southEast &= upperKingMask;
+        if ((Long.bitCount(southEast & pinPieces) == 1) & (southEast & blockingPieces) == 0L) {
+          pinnedRays.put(southEast & pinPieces, 'd');
+          return southEast & pinPieces;
+        }
+      } else if (((southWest & king) != 0L)) {
+        southWest &= upperKingMask;
+        if ((Long.bitCount(southWest & pinPieces) == 1) & (southWest & blockingPieces) == 0L) {
+          pinnedRays.put(southWest & pinPieces, 'a');
+          return southWest & pinPieces;
+        }
+      }
+    }
+    return 0L;
+  }
+
+  public long getDirectionalMask(long piece, long king, boolean isAttackMap) {
+    int position = Long.numberOfTrailingZeros(piece);
+    long bottomMask = (1L << Long.numberOfTrailingZeros(piece)) - 1;
+    long upperMask = ~bottomMask & ~piece;
+    long diagonal = diagonalMasks[(position / 8) + (position % 8)];
+    long antiDiagonal = antiDiagonalMasks[(7 + (position / 8) - (position % 8))];
+    long bottomKingMask = (1L << Long.numberOfTrailingZeros(king)) - 1;
+    long upperKingMask = ~bottomKingMask & ~king;
+
+    long north = (0x0101010101010100L) << position;
+    long south = (0x0080808080808080L) >> (position ^ 63);
+    long east = 2 * ((1L << (position | 7)) - (1L << position));
+    long west = (1L << position) - (1L << (position & 56));
+
+    long northEast = (antiDiagonal & upperMask) & ~piece;
+    long northWest = (diagonal & upperMask) & ~piece;
+    long southEast = (diagonal & bottomMask) & ~piece;
+    long southWest = (antiDiagonal & bottomMask) & ~piece;
+
+    if ((north & king) != 0L) {
+      return isAttackMap ? north : (north | piece) & bottomKingMask & ~king;
+    } else if ((south & king) != 0L) {
+      return isAttackMap ? south : (south | piece) & upperKingMask & ~king;
+    } else if ((east & king) != 0L) {
+      return isAttackMap ? east : (east | piece) & bottomKingMask & ~king;
+    } else if ((west & king) != 0L) {
+      return isAttackMap ? west : (west | piece) & upperKingMask & ~king;
+    } else if ((northEast & king) != 0L) {
+      return isAttackMap ? northEast : (northEast | piece) & bottomKingMask & ~king;
+    } else if ((northWest & king) != 0L) {
+      return isAttackMap ? northWest : (northWest | piece) & bottomKingMask & ~king;
+    } else if ((southEast & king) != 0L) {
+      return isAttackMap ? southEast : (southEast | piece) & upperKingMask & ~king;
+    } else if ((southWest & king) != 0L) {
+      return isAttackMap ? southWest : (southWest | piece) & upperKingMask & ~king;
+    } else return 0L;
   }
 
   public long convertIntToBitboard(int position) {
@@ -422,8 +620,39 @@ public class Bitboard {
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
-          Move move = new Move(origin, destination, 'P', false, false, true, ' ');
-          moveList.add(move);
+          long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
+          long saveAttackMap = attackMap;
+          long saveAttackRay = attackRay;
+          int saveAttackingPieces = attackingPieces;
+          long savePinnedPieces = pinnedPieces;
+          Map<Long, Character> savePinnedRays = new HashMap<>(pinnedRays);
+          boolean saveCurrentTurn = currentTurn;
+          long saveOccupied = occupied;
+          long saveEmpty = empty;
+          long saveWhitePieces = whitePieces;
+          long saveBlackPieces = blackPieces;
+          long saveEnPassantSquare = enPassantSquare;
+          long originBitboard = convertIntToBitboard(origin);
+          pieceBitboards[5] ^= originBitboard;
+          pieceBitboards[5] |= destinationBitboard;
+          pieceBitboards[11] ^= destinationBitboard >> 8;
+          updateBitboard();
+          if ((attackMap & pieceBitboards[0]) == 0L) {
+            Move move = new Move(origin, destination, 'P', false, false, true, ' ');
+            moveList.add(move);
+          }
+          pieceBitboards = savePieceBitboards;
+          attackMap = saveAttackMap;
+          attackRay = saveAttackRay;
+          attackingPieces = saveAttackingPieces;
+          pinnedPieces = savePinnedPieces;
+          pinnedRays = savePinnedRays;
+          currentTurn = saveCurrentTurn;
+          occupied = saveOccupied;
+          empty = saveEmpty;
+          whitePieces = saveWhitePieces;
+          blackPieces = saveBlackPieces;
+          enPassantSquare = saveEnPassantSquare;
         } else {
           Move move = new Move(origin, destination, 'P');
           moveList.add(move);
@@ -472,8 +701,39 @@ public class Bitboard {
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
-          Move move = new Move(origin, destination, 'p', false, false, true, ' ');
-          moveList.add(move);
+          long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
+          long saveAttackMap = attackMap;
+          long saveAttackRay = attackRay;
+          int saveAttackingPieces = attackingPieces;
+          long savePinnedPieces = pinnedPieces;
+          Map<Long, Character> savePinnedRays = new HashMap<>(pinnedRays);
+          boolean saveCurrentTurn = currentTurn;
+          long saveOccupied = occupied;
+          long saveEmpty = empty;
+          long saveWhitePieces = whitePieces;
+          long saveBlackPieces = blackPieces;
+          long saveEnPassantSquare = enPassantSquare;
+          long originBitboard = convertIntToBitboard(origin);
+          pieceBitboards[11] ^= originBitboard;
+          pieceBitboards[11] |= destinationBitboard;
+          pieceBitboards[5] ^= destinationBitboard << 8;
+          updateBitboard();
+          if ((attackMap & pieceBitboards[6]) == 0L) {
+            Move move = new Move(origin, destination, 'p', false, false, true, ' ');
+            moveList.add(move);
+          }
+          pieceBitboards = savePieceBitboards;
+          attackMap = saveAttackMap;
+          attackRay = saveAttackRay;
+          attackingPieces = saveAttackingPieces;
+          pinnedPieces = savePinnedPieces;
+          pinnedRays = savePinnedRays;
+          currentTurn = saveCurrentTurn;
+          occupied = saveOccupied;
+          empty = saveEmpty;
+          whitePieces = saveWhitePieces;
+          blackPieces = saveBlackPieces;
+          enPassantSquare = saveEnPassantSquare;
         } else {
           Move move = new Move(origin, destination, 'p');
           moveList.add(move);
@@ -492,7 +752,21 @@ public class Bitboard {
 
     long leftCaptures = ((whitePawn & ~fileMasks[0]) << 7) & (blackPieces | enPassantSquare);
     long rightCaptures = ((whitePawn & ~fileMasks[7]) << 9) & (blackPieces | enPassantSquare);
-    return leftCaptures | rightCaptures;
+
+    if ((whitePawn & pinnedPieces) != 0L) {
+      switch (pinnedRays.get(whitePawn)) {
+        case 'h', 'v' -> {
+          return 0L;
+        }
+        case 'd' -> {
+          return leftCaptures & attackRay;
+        }
+        case 'a' -> {
+          return rightCaptures & attackRay;
+        }
+      }
+    }
+    return (leftCaptures | rightCaptures) & (attackRay | enPassantSquare);
   }
 
   public long blackPawnCapture(long blackPawn, boolean isAttackMap) {
@@ -503,19 +777,56 @@ public class Bitboard {
     }
     long leftCaptures = (blackPawn & ~fileMasks[7]) >> 7 & (whitePieces | enPassantSquare);
     long rightCaptures = (blackPawn & ~fileMasks[0]) >> 9 & (whitePieces | enPassantSquare);
-    return leftCaptures | rightCaptures;
+
+    if (((blackPawn & pinnedPieces) != 0L)) {
+      switch (pinnedRays.get(blackPawn)) {
+        case 'h', 'v' -> {
+          return 0L;
+        }
+        case 'd' -> {
+          return leftCaptures & attackRay;
+        }
+        case 'a' -> {
+          return rightCaptures & attackRay;
+        }
+      }
+    }
+
+    return (leftCaptures | rightCaptures) & (attackRay | enPassantSquare);
   }
 
   public long whitePawnMove(long whitePawn) {
     long forwardOne = ((whitePawn & ~rankMasks[7]) << 8) & ~occupied;
     long forwardTwo = ((whitePawn & rankMasks[1]) << 16) & (empty << 8) & ~occupied;
-    return forwardOne | forwardTwo;
+
+    if ((whitePawn & pinnedPieces) != 0L) {
+      switch (pinnedRays.get(whitePawn)) {
+        case 'h', 'd', 'a' -> {
+          return 0L;
+        }
+        case 'v' -> {
+          return (forwardOne | forwardTwo) & attackRay;
+        }
+      }
+    }
+    return (forwardOne | forwardTwo) & attackRay;
   }
 
   public long blackPawnMove(long blackPawn) {
     long forwardOne = ((blackPawn & ~rankMasks[0]) >> 8) & ~occupied;
     long forwardTwo = ((blackPawn & rankMasks[6]) >> 16) & (empty >> 8) & ~occupied;
-    return forwardOne | forwardTwo;
+
+    if ((blackPawn & pinnedPieces) != 0L) {
+      switch (pinnedRays.get(blackPawn)) {
+        case 'h', 'd', 'a' -> {
+          return 0L;
+        }
+        case 'v' -> {
+          return (forwardOne | forwardTwo) & attackRay;
+        }
+      }
+    }
+    return (forwardOne | forwardTwo) & attackRay;
   }
 
   public List<Move> rookMoves(long rooks, boolean color) {
@@ -524,7 +835,7 @@ public class Bitboard {
     long[] individualRooks = getIndividualPieceBitboards(rooks);
     for (long rook : individualRooks) {
       int origin = convertBitboardToInt(rook);
-      long destinationsBitboard = rookMove(rook, currentTurn);
+      long destinationsBitboard = rookMove(rook, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
         Move move = new Move(origin, destination, piece);
@@ -534,7 +845,7 @@ public class Bitboard {
     return moveList;
   }
 
-  public long rookMove(long rook, boolean color) {
+  public long rookMove(long rook, boolean color, boolean isAttackMap) {
     long currentPieces = color ? whitePieces : blackPieces;
     int position = Long.numberOfTrailingZeros(rook);
     long rank = rankMasks[position / 8];
@@ -545,7 +856,27 @@ public class Bitboard {
         (occupied & file) - (2 * rook)
             ^ Long.reverse(Long.reverse(occupied & file) - (2 * Long.reverse(rook)));
 
-    return ((horizontal & rank) | (vertical & file)) & ~currentPieces;
+    if (((rook & pinnedPieces) != 0L) && !isAttackMap) {
+      switch (pinnedRays.get(rook)) {
+        case 'h' -> {
+          return (horizontal & rank) & ~currentPieces & attackRay;
+        }
+        case 'v' -> {
+          return (vertical & file) & ~currentPieces & attackRay;
+        }
+        case 'd', 'a' -> {
+          return 0L;
+        }
+      }
+    }
+
+    long attacks = ((horizontal & rank) | (vertical & file)) & attackRay;
+
+    if (isAttackMap) {
+      return attacks;
+    }
+
+    return attacks & ~currentPieces;
   }
 
   public List<Move> bishopMoves(long bishops, boolean color) {
@@ -554,7 +885,7 @@ public class Bitboard {
     long[] individualBishops = getIndividualPieceBitboards(bishops);
     for (long bishop : individualBishops) {
       int origin = convertBitboardToInt(bishop);
-      long destinationsBitboard = bishopMove(bishop, currentTurn);
+      long destinationsBitboard = bishopMove(bishop, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
         Move move = new Move(origin, destination, piece);
@@ -564,7 +895,7 @@ public class Bitboard {
     return moveList;
   }
 
-  public long bishopMove(long bishop, boolean color) {
+  public long bishopMove(long bishop, boolean color, boolean isAttackMap) {
     long currentPieces = color ? whitePieces : blackPieces;
     int position = Long.numberOfTrailingZeros(bishop);
     long diagonal = diagonalMasks[(position / 8) + (position % 8)];
@@ -576,8 +907,27 @@ public class Bitboard {
         ((occupied & antiDiagonal) - (2 * bishop))
             ^ Long.reverse(Long.reverse(occupied & antiDiagonal) - (2 * Long.reverse(bishop)));
 
-    return ((diagonalMove & diagonal) | (antiDiagonalMove & antiDiagonal)) & ~currentPieces;
-    // whitePieces needs to be replaced with current turn's pieces
+    if (((bishop & pinnedPieces) != 0L) && !isAttackMap) {
+      switch (pinnedRays.get(bishop)) {
+        case 'h', 'v' -> {
+          return 0L;
+        }
+        case 'd' -> {
+          return (diagonalMove & diagonal) & ~currentPieces & attackRay;
+        }
+        case 'a' -> {
+          return (antiDiagonalMove & antiDiagonal) & ~currentPieces & attackRay;
+        }
+      }
+    }
+
+    long attacks = ((diagonalMove & diagonal) | (antiDiagonalMove & antiDiagonal)) & attackRay;
+
+    if (isAttackMap) {
+      return attacks;
+    }
+
+    return attacks & ~currentPieces;
   }
 
   public List<Move> queenMoves(long queens, boolean color) {
@@ -586,7 +936,7 @@ public class Bitboard {
     long[] individualQueens = getIndividualPieceBitboards(queens);
     for (long queen : individualQueens) {
       int origin = convertBitboardToInt(queen);
-      long destinationsBitboard = queenMove(queen, currentTurn);
+      long destinationsBitboard = queenMove(queen, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
         Move move = new Move(origin, destination, piece);
@@ -596,7 +946,7 @@ public class Bitboard {
     return moveList;
   }
 
-  public long queenMove(long queen, boolean color) {
+  public long queenMove(long queen, boolean color, boolean isAttackMap) {
     long currentPieces = color ? whitePieces : blackPieces;
     int position = Long.numberOfTrailingZeros(queen);
     long rank = rankMasks[position / 8];
@@ -616,11 +966,34 @@ public class Bitboard {
         ((occupied & antiDiagonal) - (2 * queen))
             ^ Long.reverse(Long.reverse(occupied & antiDiagonal) - (2 * Long.reverse(queen)));
 
-    return ((horizontal & rank)
+    if (((queen & pinnedPieces) != 0L) && !isAttackMap) {
+      switch (pinnedRays.get(queen)) {
+        case 'h' -> {
+          return (horizontal & rank) & ~currentPieces & attackRay;
+        }
+        case 'v' -> {
+          return (vertical & file) & ~currentPieces & attackRay;
+        }
+        case 'd' -> {
+          return (diagonalMove & diagonal) & ~currentPieces & attackRay;
+        }
+        case 'a' -> {
+          return (antiDiagonalMove & antiDiagonal) & ~currentPieces & attackRay;
+        }
+      }
+    }
+
+    long attacks =
+        (horizontal & rank)
             | (vertical & file)
             | (diagonalMove & diagonal)
-            | (antiDiagonalMove & antiDiagonal))
-        & ~currentPieces;
+            | (antiDiagonalMove & antiDiagonal);
+
+    if (isAttackMap) {
+      return attacks & attackRay;
+    }
+
+    return attacks & ~currentPieces & attackRay;
   }
 
   public List<Move> knightMoves(long knights, boolean color) {
@@ -629,7 +1002,7 @@ public class Bitboard {
     long[] individualKnights = getIndividualPieceBitboards(knights);
     for (long knight : individualKnights) {
       int origin = convertBitboardToInt(knight);
-      long destinationsBitboard = knightMove(knight, color);
+      long destinationsBitboard = knightMove(knight, color, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
         Move move = new Move(origin, destination, piece);
@@ -639,7 +1012,11 @@ public class Bitboard {
     return moveList;
   }
 
-  public long knightMove(long knight, boolean color) {
+  public long knightMove(long knight, boolean color, boolean isAttackMap) {
+    if (((knight & pinnedPieces) != 0L) && !isAttackMap) {
+      return 0L;
+    }
+
     long currentPieces = color ? whitePieces : blackPieces;
     long nne = (knight << 17) & ~(fileMasks[0]);
     long nee = (knight << 10) & ~(fileMasks[0] | fileMasks[1]);
@@ -650,14 +1027,20 @@ public class Bitboard {
     long sww = (knight >>> 10) & ~(fileMasks[6] | fileMasks[7]);
     long ssw = (knight >>> 17) & ~(fileMasks[7]);
 
-    return (nne | nee | see | sse | nnw | nww | sww | ssw) & ~currentPieces;
+    long attacks = (nne | nee | see | sse | nnw | nww | sww | ssw) & attackRay;
+
+    if (isAttackMap) {
+      return attacks;
+    }
+
+    return attacks & ~currentPieces;
   }
 
   public List<Move> kingMoves(long king, boolean color) {
     char piece = color ? 'K' : 'k';
     List<Move> moveList = new ArrayList<>();
     int origin = convertBitboardToInt(king);
-    long destinationsBitboard = kingMove(king, color);
+    long destinationsBitboard = kingMove(king, color, false);
     int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
     for (int destination : destinations) {
       Move move;
@@ -678,7 +1061,7 @@ public class Bitboard {
     return moveList;
   }
 
-  public long kingMove(long king, boolean color) {
+  public long kingMove(long king, boolean color, boolean isAttackMap) {
     long currentPieces = color ? whitePieces : blackPieces;
 
     long n = (king & ~rankMasks[7]) << 8;
@@ -690,7 +1073,13 @@ public class Bitboard {
     long nw = (king & ~rankMasks[7] & ~fileMasks[0]) << 7;
     long sw = (king & ~rankMasks[0] & ~fileMasks[0]) >>> 9;
 
-    return (n | s | e | w | ne | se | nw | sw) & ~currentPieces;
+    long attacks = (n | s | e | w | ne | se | nw | sw) & ~attackMap;
+
+    if (isAttackMap) {
+      return attacks;
+    }
+
+    return attacks & ~currentPieces;
   }
 
   public List<Move> castleMoves(long king, boolean color) {
