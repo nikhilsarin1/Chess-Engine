@@ -72,6 +72,7 @@ public class Model {
     MoveInfo moveInfo = new MoveInfo();
     moveInfo.pieceBitboards =
         Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
+    moveInfo.charBoard = Arrays.copyOf(getBitboard().charBoard, getBitboard().charBoard.length);
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
     moveInfo.BK = bitboard.blackKingSide;
@@ -88,11 +89,24 @@ public class Model {
     bitboard.setEnPassantSquare(0L);
     boolean resetMoveCount = false;
 
-    for (int i = 0; i < bitboard.pieceBitboards.length; i++) {
-      if ((bitboard.pieceBitboards[i] & destinationBitboard) != 0) {
-        bitboard.pieceBitboards[i] ^= destinationBitboard;
-        resetMoveCount = true;
-        break; // Exit the loop since only one piece can be captured
+    bitboard.charBoard[origin] = ' ';
+    bitboard.charBoard[destination] = piece;
+
+    if (move.getCapturedPiece() != ' ' && !move.isEnPassant()) {
+      resetMoveCount = true;
+      switch (move.getCapturedPiece()) {
+        case 'K' -> bitboard.pieceBitboards[0] ^= destinationBitboard;
+        case 'Q' -> bitboard.pieceBitboards[1] ^= destinationBitboard;
+        case 'R' -> bitboard.pieceBitboards[2] ^= destinationBitboard;
+        case 'B' -> bitboard.pieceBitboards[3] ^= destinationBitboard;
+        case 'N' -> bitboard.pieceBitboards[4] ^= destinationBitboard;
+        case 'P' -> bitboard.pieceBitboards[5] ^= destinationBitboard;
+        case 'k' -> bitboard.pieceBitboards[6] ^= destinationBitboard;
+        case 'q' -> bitboard.pieceBitboards[7] ^= destinationBitboard;
+        case 'r' -> bitboard.pieceBitboards[8] ^= destinationBitboard;
+        case 'b' -> bitboard.pieceBitboards[9] ^= destinationBitboard;
+        case 'n' -> bitboard.pieceBitboards[10] ^= destinationBitboard;
+        case 'p' -> bitboard.pieceBitboards[11] ^= destinationBitboard;
       }
     }
 
@@ -116,11 +130,15 @@ public class Model {
           long addRook = bitboard.convertIntToBitboard(61);
           bitboard.pieceBitboards[2] ^= removeRook;
           bitboard.pieceBitboards[2] |= addRook;
+          bitboard.charBoard[63] = ' ';
+          bitboard.charBoard[61] = 'R';
         } else if (move.isQueenSideCastle()) {
           long removeRook = bitboard.convertIntToBitboard(56);
           long addRook = bitboard.convertIntToBitboard(59);
           bitboard.pieceBitboards[2] ^= removeRook;
           bitboard.pieceBitboards[2] |= addRook;
+          bitboard.charBoard[56] = ' ';
+          bitboard.charBoard[59] = 'R';
         }
       }
       case 'Q' -> {
@@ -153,6 +171,7 @@ public class Model {
         }
         if (move.isEnPassant()) {
           bitboard.pieceBitboards[11] ^= destinationBitboard >> 8;
+          bitboard.charBoard[destination + 8] = ' ';
         }
         if (move.getPromotion() != ' ') {
           promotedPiece = move.getPromotion();
@@ -163,18 +182,22 @@ public class Model {
             case 'Q' -> {
               bitboard.pieceBitboards[5] ^= destinationBitboard;
               bitboard.pieceBitboards[1] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'Q';
             }
             case 'R' -> {
               bitboard.pieceBitboards[5] ^= destinationBitboard;
               bitboard.pieceBitboards[2] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'R';
             }
             case 'B' -> {
               bitboard.pieceBitboards[5] ^= destinationBitboard;
               bitboard.pieceBitboards[3] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'B';
             }
             case 'N' -> {
               bitboard.pieceBitboards[5] ^= destinationBitboard;
               bitboard.pieceBitboards[4] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'N';
             }
           }
           promotedPiece = ' ';
@@ -192,11 +215,15 @@ public class Model {
           long addRook = bitboard.convertIntToBitboard(5);
           bitboard.pieceBitboards[8] ^= removeRook;
           bitboard.pieceBitboards[8] |= addRook;
+          bitboard.charBoard[7] = ' ';
+          bitboard.charBoard[5] = 'r';
         } else if (move.isQueenSideCastle()) {
           long removeRook = bitboard.convertIntToBitboard(0);
           long addRook = bitboard.convertIntToBitboard(3);
           bitboard.pieceBitboards[8] ^= removeRook;
           bitboard.pieceBitboards[8] |= addRook;
+          bitboard.charBoard[0] = ' ';
+          bitboard.charBoard[3] = 'r';
         }
       }
       case 'q' -> {
@@ -229,6 +256,7 @@ public class Model {
         }
         if (move.isEnPassant()) {
           bitboard.pieceBitboards[5] ^= destinationBitboard << 8;
+          bitboard.charBoard[destination - 8] = ' ';
         }
         if (move.getPromotion() != ' ') {
           promotedPiece = move.getPromotion();
@@ -239,18 +267,22 @@ public class Model {
             case 'q' -> {
               bitboard.pieceBitboards[11] ^= destinationBitboard;
               bitboard.pieceBitboards[7] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'q';
             }
             case 'r' -> {
               bitboard.pieceBitboards[11] ^= destinationBitboard;
               bitboard.pieceBitboards[8] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'r';
             }
             case 'b' -> {
               bitboard.pieceBitboards[11] ^= destinationBitboard;
               bitboard.pieceBitboards[9] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'b';
             }
             case 'n' -> {
               bitboard.pieceBitboards[11] ^= destinationBitboard;
               bitboard.pieceBitboards[10] |= destinationBitboard;
+              bitboard.charBoard[destination] = 'n';
             }
           }
           promotedPiece = ' ';
@@ -277,6 +309,7 @@ public class Model {
   public void undoMove() {
     MoveInfo moveInfo = moveStack.pop();
     bitboard.pieceBitboards = moveInfo.pieceBitboards;
+    bitboard.charBoard = moveInfo.charBoard;
     bitboard.whiteKingSide = moveInfo.WK;
     bitboard.whiteQueenSide = moveInfo.WQ;
     bitboard.blackKingSide = moveInfo.BK;

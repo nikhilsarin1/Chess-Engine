@@ -63,6 +63,7 @@ public class Bitboard {
   static long blackKingSideMask = 0x7000000000000000L; // black king side castle squares
   static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
   public long[] pieceBitboards;
+  public char[] charBoard;
   public long attackMap;
   public int attackingPieces;
   public long attackRay;
@@ -108,6 +109,7 @@ public class Bitboard {
         break;
       }
     }
+    this.charBoard = board;
     this.pieceBitboards = convertCharArrayToBitboards(board);
     this.currentTurn = fen.contains("w");
     this.whiteKingSide = fen.contains("K");
@@ -593,28 +595,33 @@ public class Bitboard {
       for (int destination : moveDestinations) {
         long destinationBitboard = convertIntToBitboard(destination);
         if ((destinationBitboard & rankMasks[7]) != 0L) {
-          Move promotionQueen = new Move(origin, destination, 'P', false, false, false, 'Q');
-          Move promotionRook = new Move(origin, destination, 'P', false, false, false, 'R');
-          Move promotionBishop = new Move(origin, destination, 'P', false, false, false, 'B');
-          Move promotionKnight = new Move(origin, destination, 'P', false, false, false, 'N');
+          Move promotionQueen = new Move(origin, destination, 'P', ' ', false, false, false, 'Q');
+          Move promotionRook = new Move(origin, destination, 'P', ' ', false, false, false, 'R');
+          Move promotionBishop = new Move(origin, destination, 'P', ' ', false, false, false, 'B');
+          Move promotionKnight = new Move(origin, destination, 'P', ' ', false, false, false, 'N');
           moveList.add(promotionQueen);
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
         } else {
-          Move move = new Move(origin, destination, 'P');
+          Move move = new Move(origin, destination, 'P', ' ');
           moveList.add(move);
         }
       }
       long captureDestinationsBitboard = whitePawnCapture(pawn, false);
       int[] captureDestinations = convertBitboardToArrayOfIndexes(captureDestinationsBitboard);
       for (int destination : captureDestinations) {
+        char capturedPiece = charBoard[destination];
         long destinationBitboard = convertIntToBitboard(destination);
         if ((destinationBitboard & rankMasks[7]) != 0L) {
-          Move promotionQueen = new Move(origin, destination, 'P', false, false, false, 'Q');
-          Move promotionRook = new Move(origin, destination, 'P', false, false, false, 'R');
-          Move promotionBishop = new Move(origin, destination, 'P', false, false, false, 'B');
-          Move promotionKnight = new Move(origin, destination, 'P', false, false, false, 'N');
+          Move promotionQueen =
+              new Move(origin, destination, 'P', capturedPiece, false, false, false, 'Q');
+          Move promotionRook =
+              new Move(origin, destination, 'P', capturedPiece, false, false, false, 'R');
+          Move promotionBishop =
+              new Move(origin, destination, 'P', capturedPiece, false, false, false, 'B');
+          Move promotionKnight =
+              new Move(origin, destination, 'P', capturedPiece, false, false, false, 'N');
           moveList.add(promotionQueen);
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
@@ -638,7 +645,7 @@ public class Bitboard {
           pieceBitboards[11] ^= destinationBitboard >> 8;
           updateBitboard();
           if ((attackMap & pieceBitboards[0]) == 0L) {
-            Move move = new Move(origin, destination, 'P', false, false, true, ' ');
+            Move move = new Move(origin, destination, 'P', 'p', false, false, true, ' ');
             moveList.add(move);
           }
           pieceBitboards = savePieceBitboards;
@@ -654,7 +661,7 @@ public class Bitboard {
           blackPieces = saveBlackPieces;
           enPassantSquare = saveEnPassantSquare;
         } else {
-          Move move = new Move(origin, destination, 'P');
+          Move move = new Move(origin, destination, 'P', capturedPiece);
           moveList.add(move);
         }
       }
@@ -673,29 +680,34 @@ public class Bitboard {
       for (int destination : moveDestinations) {
         long destinationBitboard = convertIntToBitboard(destination);
         if ((destinationBitboard & rankMasks[0]) != 0L) {
-          Move promotionQueen = new Move(origin, destination, 'p', false, false, false, 'q');
-          Move promotionRook = new Move(origin, destination, 'p', false, false, false, 'r');
-          Move promotionBishop = new Move(origin, destination, 'p', false, false, false, 'b');
-          Move promotionKnight = new Move(origin, destination, 'p', false, false, false, 'n');
+          Move promotionQueen = new Move(origin, destination, 'p', ' ', false, false, false, 'q');
+          Move promotionRook = new Move(origin, destination, 'p', ' ', false, false, false, 'r');
+          Move promotionBishop = new Move(origin, destination, 'p', ' ', false, false, false, 'b');
+          Move promotionKnight = new Move(origin, destination, 'p', ' ', false, false, false, 'n');
           moveList.add(promotionQueen);
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
 
         } else {
-          Move move = new Move(origin, destination, 'p');
+          Move move = new Move(origin, destination, 'p', ' ');
           moveList.add(move);
         }
       }
       long captureDestinationsBitboard = blackPawnCapture(pawn, false);
       int[] captureDestinations = convertBitboardToArrayOfIndexes(captureDestinationsBitboard);
       for (int destination : captureDestinations) {
+        char capturedPiece = charBoard[destination];
         long destinationBitboard = convertIntToBitboard(destination);
         if ((destinationBitboard & rankMasks[0]) != 0L) {
-          Move promotionQueen = new Move(origin, destination, 'p', false, false, false, 'q');
-          Move promotionRook = new Move(origin, destination, 'p', false, false, false, 'r');
-          Move promotionBishop = new Move(origin, destination, 'p', false, false, false, 'b');
-          Move promotionKnight = new Move(origin, destination, 'p', false, false, false, 'n');
+          Move promotionQueen =
+              new Move(origin, destination, 'p', capturedPiece, false, false, false, 'q');
+          Move promotionRook =
+              new Move(origin, destination, 'p', capturedPiece, false, false, false, 'r');
+          Move promotionBishop =
+              new Move(origin, destination, 'p', capturedPiece, false, false, false, 'b');
+          Move promotionKnight =
+              new Move(origin, destination, 'p', capturedPiece, false, false, false, 'n');
           moveList.add(promotionQueen);
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
@@ -719,7 +731,7 @@ public class Bitboard {
           pieceBitboards[5] ^= destinationBitboard << 8;
           updateBitboard();
           if ((attackMap & pieceBitboards[6]) == 0L) {
-            Move move = new Move(origin, destination, 'p', false, false, true, ' ');
+            Move move = new Move(origin, destination, 'p', 'P', false, false, true, ' ');
             moveList.add(move);
           }
           pieceBitboards = savePieceBitboards;
@@ -735,7 +747,7 @@ public class Bitboard {
           blackPieces = saveBlackPieces;
           enPassantSquare = saveEnPassantSquare;
         } else {
-          Move move = new Move(origin, destination, 'p');
+          Move move = new Move(origin, destination, 'p', capturedPiece);
           moveList.add(move);
         }
       }
@@ -838,7 +850,8 @@ public class Bitboard {
       long destinationsBitboard = rookMove(rook, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
-        Move move = new Move(origin, destination, piece);
+        char capturedPiece = charBoard[destination];
+        Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
       }
     }
@@ -888,7 +901,8 @@ public class Bitboard {
       long destinationsBitboard = bishopMove(bishop, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
-        Move move = new Move(origin, destination, piece);
+        char capturedPiece = charBoard[destination];
+        Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
       }
     }
@@ -939,7 +953,8 @@ public class Bitboard {
       long destinationsBitboard = queenMove(queen, currentTurn, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
-        Move move = new Move(origin, destination, piece);
+        char capturedPiece = charBoard[destination];
+        Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
       }
     }
@@ -1005,7 +1020,8 @@ public class Bitboard {
       long destinationsBitboard = knightMove(knight, color, false);
       int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
       for (int destination : destinations) {
-        Move move = new Move(origin, destination, piece);
+        char capturedPiece = charBoard[destination];
+        Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
       }
     }
@@ -1043,16 +1059,17 @@ public class Bitboard {
     long destinationsBitboard = kingMove(king, color, false);
     int[] destinations = convertBitboardToArrayOfIndexes(destinationsBitboard);
     for (int destination : destinations) {
+      char capturedPiece = charBoard[destination];
       Move move;
       boolean castle = Math.abs(destination - origin) == 2;
       if (castle) {
         if (destination > origin) {
-          move = new Move(origin, destination, piece, true, false, false, ' ');
+          move = new Move(origin, destination, piece, ' ', true, false, false, ' ');
         } else {
-          move = new Move(origin, destination, piece, false, true, false, ' ');
+          move = new Move(origin, destination, piece, ' ', false, true, false, ' ');
         }
       } else {
-        move = new Move(origin, destination, piece);
+        move = new Move(origin, destination, piece, capturedPiece);
       }
       moveList.add(move);
     }
@@ -1094,9 +1111,9 @@ public class Bitboard {
     for (int destination : destinations) {
       Move move;
       if (destination > origin) {
-        move = new Move(origin, destination, piece, true, false, false, ' ');
+        move = new Move(origin, destination, piece, ' ', true, false, false, ' ');
       } else {
-        move = new Move(origin, destination, piece, false, true, false, ' ');
+        move = new Move(origin, destination, piece, ' ', false, true, false, ' ');
       }
       moveList.add(move);
     }
