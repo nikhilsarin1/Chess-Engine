@@ -1,5 +1,7 @@
 package ChessEngine.model;
 
+import ChessEngine.AI.MoveComparator;
+
 import java.util.*;
 
 public class Bitboard {
@@ -79,7 +81,7 @@ public class Bitboard {
   private long whitePieces;
   private long blackPieces;
   private long enPassantSquare;
-  private List<Move> legalMoves;
+  public List<Move> legalMoves;
 
   public Bitboard(String fen) {
     fenConverter(fen);
@@ -175,6 +177,7 @@ public class Bitboard {
         legalMoves.addAll(blackPawnMoves(pieceBitboards[11]));
       }
     }
+    legalMoves.sort(new MoveComparator());
     this.legalMoves = legalMoves;
   }
 

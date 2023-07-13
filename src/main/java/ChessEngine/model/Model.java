@@ -73,6 +73,7 @@ public class Model {
     moveInfo.pieceBitboards =
         Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
     moveInfo.charBoard = Arrays.copyOf(getBitboard().charBoard, getBitboard().charBoard.length);
+    moveInfo.legalMoves = new ArrayList<>(bitboard.getLegalMoves());
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
     moveInfo.BK = bitboard.blackKingSide;
@@ -319,7 +320,7 @@ public class Model {
     currentTurn = moveInfo.currentTurn;
     bitboard.currentTurn = currentTurn;
     bitboard.updateBitboard();
-    bitboard.generateLegalMoves();
+    bitboard.legalMoves = moveInfo.legalMoves;
   }
 
   public boolean isCheck() {
