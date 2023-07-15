@@ -23,5 +23,5 @@ module com.example.chessproject {
   exports ChessEngine.controller;
   opens ChessEngine.controller to javafx.fxml;
   exports ChessEngine.model;
-
+  exports ChessEngine.AI;
 }

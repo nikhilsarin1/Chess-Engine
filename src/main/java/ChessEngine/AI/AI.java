@@ -114,40 +114,60 @@ public class AI {
   }
 
   public int search(int depth, int alpha, int beta) {
-    Move move = null;
+    long zobristKey = model.getZobristKey();
+
+    TranspositionEntry entry = model.getTranspositionTable().getPosition(zobristKey);
+
+    if (entry != null && entry.depth() >= depth) {
+      if (entry.flag() == TranspositionEntry.Flag.EXACT) {
+        bestMove = entry.bestMove();
+        return entry.score();
+      } else if (entry.flag() == TranspositionEntry.Flag.LOWER_BOUND && entry.score() >= beta) {
+        return entry.score();
+      } else if (entry.flag() == TranspositionEntry.Flag.UPPER_BOUND && entry.score() < alpha) {
+        return entry.score();
+      }
+    }
 
     if (depth == 0) {
       return evaluate();
     }
 
     if (model.isCheckmate()) {
-      return -99999999;
+      return -9999999 - depth;
     } else if (model.isDraw()) {
       return 0;
     }
 
     int bestEvaluation = -999999999;
+    Move bestMoveAtCurrentDepth = null;
+    TranspositionEntry.Flag flag = TranspositionEntry.Flag.UPPER_BOUND;
 
     for (Move possibleMove : model.getBitboard().getLegalMoves()) {
       searchCount++;
-      model.movePiece(possibleMove, true);
+      model.movePiece(possibleMove, false);
       int evaluation = -search(depth - 1, -beta, -alpha);
       model.undoMove();
 
-      if (evaluation > bestEvaluation) {
-        bestEvaluation = evaluation;
-        move = possibleMove;
+      if (evaluation >= beta) {
+        model.transpositionTable.storePosition(
+            zobristKey, depth, beta, TranspositionEntry.Flag.LOWER_BOUND, possibleMove);
+        return beta;
       }
 
-      alpha = Math.max(alpha, evaluation);
-      if (alpha > beta) {
-        // Beta cutoff
-        break;
+      if (evaluation > bestEvaluation) {
+        flag = TranspositionEntry.Flag.EXACT;
+        bestEvaluation = evaluation;
+        bestMoveAtCurrentDepth = possibleMove;
+        alpha = Math.max(alpha, evaluation);
       }
     }
 
-    bestMove = move;
-    return alpha;
+    model.transpositionTable.storePosition(
+        zobristKey, depth, bestEvaluation, flag, bestMoveAtCurrentDepth);
+
+    bestMove = bestMoveAtCurrentDepth;
+    return bestEvaluation;
   }
 
   public void fullSearch(int depth) {
@@ -157,7 +177,7 @@ public class AI {
       return; // Return value doesn't matter in this context
     }
     for (Move possibleMove : model.getBitboard().getLegalMoves()) {
-      model.movePiece(possibleMove, true);
+      model.movePiece(possibleMove, false);
       fullSearch(depth - 1);
       model.undoMove();
 

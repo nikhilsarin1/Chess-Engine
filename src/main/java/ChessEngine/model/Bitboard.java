@@ -76,12 +76,12 @@ public class Bitboard {
   public boolean whiteQueenSide;
   public boolean blackKingSide;
   public boolean blackQueenSide;
+  public List<Move> legalMoves;
   private long occupied;
   private long empty;
   private long whitePieces;
   private long blackPieces;
   private long enPassantSquare;
-  public List<Move> legalMoves;
 
   public Bitboard(String fen) {
     fenConverter(fen);
@@ -118,19 +118,6 @@ public class Bitboard {
     this.whiteQueenSide = fen.contains("Q");
     this.blackKingSide = fen.contains("k");
     this.blackQueenSide = fen.contains("q");
-  }
-
-  public char[] startingBoard() {
-    return new char[] {
-      'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',
-      'p', 'p', 'p', 'p', 'p', 'p', 'p', 'p',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-      'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P',
-      'R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'
-    };
   }
 
   public void updateBitboard() {
@@ -1093,13 +1080,13 @@ public class Bitboard {
     long nw = (king & ~rankMasks[7] & ~fileMasks[0]) << 7;
     long sw = (king & ~rankMasks[0] & ~fileMasks[0]) >>> 9;
 
-    long attacks = (n | s | e | w | ne | se | nw | sw) & ~attackMap;
+    long attacks = (n | s | e | w | ne | se | nw | sw);
 
     if (isAttackMap) {
       return attacks;
     }
 
-    return attacks & ~currentPieces;
+    return attacks & ~currentPieces & ~attackMap;
   }
 
   public List<Move> castleMoves(long king, boolean color) {

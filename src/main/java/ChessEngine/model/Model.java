@@ -1,19 +1,24 @@
 package ChessEngine.model;
 
+import ChessEngine.AI.TranspositionTable;
+import ChessEngine.AI.Zobrist;
+
 import java.util.*;
 
 public class Model {
   private final Bitboard bitboard;
   private final List<ModelObserver> observers;
   private final Stack<MoveInfo> moveStack;
-  public Map<String, Integer> boardState;
+  public Map<Long, Integer> boardState;
   public boolean searching;
+  public TranspositionTable transpositionTable;
   private boolean currentTurn;
   private boolean selectedPlayer;
   private int lastMoveOrigin;
   private int lastMoveDestination;
   private char promotedPiece;
   private int moveCount;
+  private long zobristKey;
 
   public Model(String fen) {
     this.bitboard = new Bitboard(fen);
@@ -25,6 +30,9 @@ public class Model {
     this.moveStack = new Stack<>();
     this.selectedPlayer = true;
     this.searching = false;
+    Zobrist.getInstance(bitboard);
+    this.zobristKey = Zobrist.getZobristKey();
+    this.transpositionTable = new TranspositionTable();
   }
 
   public Bitboard getBitboard() {
@@ -41,6 +49,14 @@ public class Model {
 
   public int getLastMoveDestination() {
     return lastMoveDestination;
+  }
+
+  public long getZobristKey() {
+    return zobristKey;
+  }
+
+  public TranspositionTable getTranspositionTable() {
+    return transpositionTable;
   }
 
   public boolean getSelectedPlayer() {
@@ -74,6 +90,7 @@ public class Model {
         Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
     moveInfo.charBoard = Arrays.copyOf(getBitboard().charBoard, getBitboard().charBoard.length);
     moveInfo.legalMoves = new ArrayList<>(bitboard.getLegalMoves());
+    moveInfo.zobristKey = zobristKey;
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
     moveInfo.BK = bitboard.blackKingSide;
@@ -291,19 +308,23 @@ public class Model {
       }
     }
 
+    updateZobristKey(move, moveInfo);
+    moveStack.push(moveInfo);
+    if (resetMoveCount) {
+      moveCount = 0;
+    } else {
+      moveCount++;
+    }
+    lastMoveOrigin = origin;
+    lastMoveDestination = destination;
+    changeTurn();
+    bitboard.changeTurn();
+    bitboard.updateBitboard();
+    bitboard.generateLegalMoves();
+
     if (isActualMove) {
-      moveStack.push(moveInfo);
-      if (resetMoveCount) {
-        moveCount = 0;
-      } else {
-        moveCount++;
-      }
-      lastMoveOrigin = origin;
-      lastMoveDestination = destination;
-      changeTurn();
-      bitboard.changeTurn();
-      bitboard.updateBitboard();
-      bitboard.generateLegalMoves();
+      boardState.put(zobristKey, boardState.getOrDefault(zobristKey, 0) + 1);
+      notifyObservers();
     }
   }
 
@@ -321,6 +342,124 @@ public class Model {
     bitboard.currentTurn = currentTurn;
     bitboard.updateBitboard();
     bitboard.legalMoves = moveInfo.legalMoves;
+    zobristKey = moveInfo.zobristKey;
+  }
+
+  public void updateZobristKey(Move move, MoveInfo moveInfo) {
+    int origin = move.getOrigin();
+    int destination = move.getDestination();
+    char piece = move.getPiece();
+    char capturedPiece = move.getCapturedPiece();
+
+    switch (piece) {
+      case 'K' -> {
+        zobristKey ^= Zobrist.board[0][origin];
+        zobristKey ^= Zobrist.board[0][destination];
+      }
+      case 'Q' -> {
+        zobristKey ^= Zobrist.board[1][origin];
+        zobristKey ^= Zobrist.board[1][destination];
+      }
+      case 'R' -> {
+        zobristKey ^= Zobrist.board[2][origin];
+        zobristKey ^= Zobrist.board[2][destination];
+      }
+      case 'B' -> {
+        zobristKey ^= Zobrist.board[3][origin];
+        zobristKey ^= Zobrist.board[3][destination];
+      }
+      case 'N' -> {
+        zobristKey ^= Zobrist.board[4][origin];
+        zobristKey ^= Zobrist.board[4][destination];
+      }
+      case 'P' -> {
+        zobristKey ^= Zobrist.board[5][origin];
+        if (move.getPromotion() != ' ') {
+          switch (move.getPromotion()) {
+            case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
+            case 'R' -> zobristKey ^= Zobrist.board[2][destination];
+            case 'B' -> zobristKey ^= Zobrist.board[3][destination];
+            case 'N' -> zobristKey ^= Zobrist.board[4][destination];
+          }
+        } else {
+          zobristKey ^= Zobrist.board[5][destination];
+        }
+      }
+      case 'k' -> {
+        zobristKey ^= Zobrist.board[6][origin];
+        zobristKey ^= Zobrist.board[6][destination];
+      }
+      case 'q' -> {
+        zobristKey ^= Zobrist.board[7][origin];
+        zobristKey ^= Zobrist.board[7][destination];
+      }
+      case 'r' -> {
+        zobristKey ^= Zobrist.board[8][origin];
+        zobristKey ^= Zobrist.board[8][destination];
+      }
+      case 'b' -> {
+        zobristKey ^= Zobrist.board[9][origin];
+        zobristKey ^= Zobrist.board[9][destination];
+      }
+      case 'n' -> {
+        zobristKey ^= Zobrist.board[10][origin];
+        zobristKey ^= Zobrist.board[10][destination];
+      }
+      case 'p' -> {
+        zobristKey ^= Zobrist.board[11][origin];
+        if (move.getPromotion() != ' ') {
+          switch (move.getPromotion()) {
+            case 'q' -> zobristKey ^= Zobrist.board[7][destination];
+            case 'r' -> zobristKey ^= Zobrist.board[8][destination];
+            case 'b' -> zobristKey ^= Zobrist.board[9][destination];
+            case 'n' -> zobristKey ^= Zobrist.board[10][destination];
+          }
+        } else {
+          zobristKey ^= Zobrist.board[11][destination];
+        }
+      }
+    }
+
+    switch (capturedPiece) {
+      case 'K' -> zobristKey ^= Zobrist.board[0][destination];
+      case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
+      case 'R' -> zobristKey ^= Zobrist.board[2][destination];
+      case 'B' -> zobristKey ^= Zobrist.board[3][destination];
+      case 'N' -> zobristKey ^= Zobrist.board[4][destination];
+      case 'P' -> zobristKey ^= Zobrist.board[5][destination];
+      case 'k' -> zobristKey ^= Zobrist.board[6][destination];
+      case 'q' -> zobristKey ^= Zobrist.board[7][destination];
+      case 'r' -> zobristKey ^= Zobrist.board[8][destination];
+      case 'b' -> zobristKey ^= Zobrist.board[9][destination];
+      case 'n' -> zobristKey ^= Zobrist.board[10][destination];
+      case 'p' -> zobristKey ^= Zobrist.board[11][destination];
+    }
+
+    if (bitboard.getEnPassantSquare() != moveInfo.enPassantSquare) {
+      if (bitboard.getEnPassantSquare() != 0) {
+        int position = bitboard.convertBitboardToInt(bitboard.getEnPassantSquare());
+        zobristKey ^= Zobrist.enPassant[position % 8];
+      }
+      if (moveInfo.enPassantSquare != 0) {
+        int position = bitboard.convertBitboardToInt(moveInfo.enPassantSquare);
+        zobristKey ^= Zobrist.enPassant[position % 8];
+      }
+    }
+
+    if (bitboard.whiteKingSide != moveInfo.WK) {
+      zobristKey ^= Zobrist.castle[0];
+    }
+    if (bitboard.whiteQueenSide != moveInfo.WQ) {
+      zobristKey ^= Zobrist.castle[1];
+    }
+    if (bitboard.blackKingSide != moveInfo.BK) {
+      zobristKey ^= Zobrist.castle[2];
+    }
+    if (bitboard.blackQueenSide != moveInfo.BQ) {
+      zobristKey ^= Zobrist.castle[3];
+    }
+
+    zobristKey ^= Zobrist.turn;
   }
 
   public boolean isCheck() {
@@ -421,11 +560,6 @@ public class Model {
       case 7 -> move.append("1");
     }
     return move.toString();
-  }
-
-  public String generateBoardState() {
-    char[] board = bitboard.convertBitboardsToCharArray(bitboard.pieceBitboards);
-    return new String(board);
   }
 
   public void addObserver(ModelObserver observer) {

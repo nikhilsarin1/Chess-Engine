@@ -14,6 +14,7 @@ public class TestPerfT {
   // Position 4 debugs possible promotion errors
   // Position 5 debugs simultaneous edge case errors
   // Position 6 debugs simultaneous edge case errors
+  // Position 7 debugs king attacking king errors
 
   @Test
   public void testP1D1() {
@@ -258,5 +259,60 @@ public class TestPerfT {
     System.out.println(
         "Position 6 Depth 4 Search Count: " + bot.searchCount + ", expected 3894594.");
     assert (bot.searchCount == 3894594);
+  }
+
+  @Test
+  public void testP7D1() {
+    Model model =
+            new Model("8/7p/3k4/8/3K4/8/P7/8 w - - 0 1");
+    AI bot = new AI(model);
+    bot.fullSearch(1);
+    System.out.println(
+            "Position 7 Depth 1 Search Count: " + bot.searchCount + ", expected 7.");
+    assert (bot.searchCount == 7);
+  }
+
+  @Test
+  public void testP7D2() {
+    Model model =
+            new Model("8/7p/3k4/8/3K4/8/P7/8 w - - 0 1");
+    AI bot = new AI(model);
+    bot.fullSearch(2);
+    System.out.println(
+            "Position 7 Depth 2 Search Count: " + bot.searchCount + ", expected 60.");
+    assert (bot.searchCount == 60);
+  }
+
+  @Test
+  public void testP7D3() {
+    Model model =
+            new Model("8/7p/3k4/8/3K4/8/P7/8 w - - 0 1");
+    AI bot = new AI(model);
+    bot.fullSearch(3);
+    System.out.println(
+            "Position 7 Depth 3 Search Count: " + bot.searchCount + ", expected 527.");
+    assert (bot.searchCount == 527);
+  }
+
+  @Test
+  public void testP7D4() {
+    Model model =
+            new Model("8/7p/3k4/8/3K4/8/P7/8 w - - 0 1");
+    AI bot = new AI(model);
+    bot.fullSearch(4);
+    System.out.println(
+            "Position 7 Depth 4 Search Count: " + bot.searchCount + ", expected 4761.");
+    assert (bot.searchCount == 4761);
+  }
+
+  @Test
+  public void testP7D5() {
+    Model model =
+            new Model("8/7p/3k4/8/3K4/8/P7/8 w - - 0 1");
+    AI bot = new AI(model);
+    bot.fullSearch(5);
+    System.out.println(
+            "Position 7 Depth 5 Search Count: " + bot.searchCount + ", expected 42789.");
+    assert (bot.searchCount == 42789);
   }
 }

@@ -6,6 +6,7 @@ public class MoveInfo {
   public long[] pieceBitboards;
   public char[] charBoard;
   public List<Move> legalMoves;
+  public long zobristKey;
   public boolean WK;
   public boolean WQ;
   public boolean BK;

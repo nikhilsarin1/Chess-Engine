@@ -10,6 +10,7 @@ public class Controller {
   private final Model model;
   private final AI bot;
   private int origin;
+
   public Controller(Model model) {
     this.model = model;
     this.origin = -1;
@@ -45,16 +46,13 @@ public class Controller {
     }
     assert selectedMove != null;
     model.movePiece(selectedMove, true);
-    String str = model.generateBoardState();
-    model.boardState.put(str, model.boardState.getOrDefault(str, 0) + 1);
-    model.notifyObservers();
     this.origin = -1;
   }
 
   public void botTurn() {
     long startTime = System.nanoTime(); // Capture the start time
     model.searching = true;
-    bot.search(4, -999999999, 999999999);
+    bot.search(5, -999999999, 999999999);
     long endTime = System.nanoTime(); // Capture the end time
     long elapsedTime = endTime - startTime;
     double elapsedSeconds = (double) elapsedTime / 1_000_000_000;
@@ -64,9 +62,6 @@ public class Controller {
     Move move = bot.getBestMove();
     model.movePiece(move, true);
     model.searching = false;
-    String str = model.generateBoardState();
-    model.boardState.put(str, model.boardState.getOrDefault(str, 0) + 1);
-    model.notifyObservers();
     bot.searchCount = 0;
   }
 }
