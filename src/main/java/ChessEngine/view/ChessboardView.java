@@ -52,7 +52,6 @@ public class ChessboardView implements ModelObserver, FXComponent {
     this.lastMoveDestination = -1;
     this.orientation = true;
     showColorSelectionDialog();
-    flipBoard();
   }
 
   public Parent render() {
