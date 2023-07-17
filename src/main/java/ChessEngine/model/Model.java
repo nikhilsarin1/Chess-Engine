@@ -97,6 +97,9 @@ public class Model {
     moveInfo.BQ = bitboard.blackQueenSide;
     moveInfo.currentTurn = currentTurn;
     moveInfo.moveCount = moveCount;
+    moveInfo.materialCount = bitboard.materialCount;
+    moveInfo.squareBonuses = bitboard.squareBonuses;
+    moveInfo.boardState = new HashMap<>(boardState);
     int origin = move.getOrigin();
     int destination = move.getDestination();
     char piece = move.getPiece();
@@ -309,6 +312,8 @@ public class Model {
     }
 
     updateZobristKey(move, moveInfo);
+    bitboard.updateMaterialCount(move);
+    bitboard.updateSquareBonuses(move);
     moveStack.push(moveInfo);
     if (resetMoveCount) {
       moveCount = 0;
@@ -321,9 +326,9 @@ public class Model {
     bitboard.changeTurn();
     bitboard.updateBitboard();
     bitboard.generateLegalMoves();
+    boardState.put(zobristKey, boardState.getOrDefault(zobristKey, 0) + 1);
 
     if (isActualMove) {
-      boardState.put(zobristKey, boardState.getOrDefault(zobristKey, 0) + 1);
       notifyObservers();
     }
   }
@@ -343,6 +348,9 @@ public class Model {
     bitboard.updateBitboard();
     bitboard.legalMoves = moveInfo.legalMoves;
     zobristKey = moveInfo.zobristKey;
+    bitboard.materialCount = moveInfo.materialCount;
+    bitboard.squareBonuses = moveInfo.squareBonuses;
+    boardState = moveInfo.boardState;
   }
 
   public void updateZobristKey(Move move, MoveInfo moveInfo) {
@@ -420,19 +428,26 @@ public class Model {
       }
     }
 
-    switch (capturedPiece) {
-      case 'K' -> zobristKey ^= Zobrist.board[0][destination];
-      case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
-      case 'R' -> zobristKey ^= Zobrist.board[2][destination];
-      case 'B' -> zobristKey ^= Zobrist.board[3][destination];
-      case 'N' -> zobristKey ^= Zobrist.board[4][destination];
-      case 'P' -> zobristKey ^= Zobrist.board[5][destination];
-      case 'k' -> zobristKey ^= Zobrist.board[6][destination];
-      case 'q' -> zobristKey ^= Zobrist.board[7][destination];
-      case 'r' -> zobristKey ^= Zobrist.board[8][destination];
-      case 'b' -> zobristKey ^= Zobrist.board[9][destination];
-      case 'n' -> zobristKey ^= Zobrist.board[10][destination];
-      case 'p' -> zobristKey ^= Zobrist.board[11][destination];
+    if (!move.isEnPassant()) {
+      switch (capturedPiece) {
+        case 'K' -> zobristKey ^= Zobrist.board[0][destination];
+        case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
+        case 'R' -> zobristKey ^= Zobrist.board[2][destination];
+        case 'B' -> zobristKey ^= Zobrist.board[3][destination];
+        case 'N' -> zobristKey ^= Zobrist.board[4][destination];
+        case 'P' -> zobristKey ^= Zobrist.board[5][destination];
+        case 'k' -> zobristKey ^= Zobrist.board[6][destination];
+        case 'q' -> zobristKey ^= Zobrist.board[7][destination];
+        case 'r' -> zobristKey ^= Zobrist.board[8][destination];
+        case 'b' -> zobristKey ^= Zobrist.board[9][destination];
+        case 'n' -> zobristKey ^= Zobrist.board[10][destination];
+        case 'p' -> zobristKey ^= Zobrist.board[11][destination];
+      }
+    } else {
+      switch (capturedPiece) {
+        case 'P' -> zobristKey ^= Zobrist.board[5][destination - 8];
+        case 'p' -> zobristKey ^= Zobrist.board[11][destination + 8];
+      }
     }
 
     if (bitboard.getEnPassantSquare() != moveInfo.enPassantSquare) {
@@ -508,12 +523,10 @@ public class Model {
   }
 
   public boolean isThreeFoldRepetition() {
-    for (int count : boardState.values()) {
-      if (count >= 3) {
-        return true;
-      }
+    if (!boardState.containsKey(zobristKey)) {
+      return false;
     }
-    return false;
+    return boardState.get(zobristKey) >= 3;
   }
 
   public String getMoveNotation(int origin, int destination) {

@@ -1,6 +1,7 @@
 package ChessEngine.model;
 
 import ChessEngine.AI.MoveComparator;
+import ChessEngine.AI.PieceTables;
 
 import java.util.*;
 
@@ -59,11 +60,15 @@ public class Bitboard {
     0x201000000000000L, // b8 to a7
     0x100000000000000L // a8
   };
-
   static long whiteKingSideMask = 0x70L; // white king side castle squares
   static long whiteQueenSideMask = 0x1CL; // white queen side castle squares
   static long blackKingSideMask = 0x7000000000000000L; // black king side castle squares
   static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
+  final int pawnValue = 100;
+  final int knightValue = 300;
+  final int bishopValue = 300;
+  final int rookValue = 500;
+  final int queenValue = 900;
   public long[] pieceBitboards;
   public char[] charBoard;
   public long attackMap;
@@ -77,7 +82,9 @@ public class Bitboard {
   public boolean blackKingSide;
   public boolean blackQueenSide;
   public List<Move> legalMoves;
-  private long occupied;
+  public long occupied;
+  public int materialCount;
+  public int squareBonuses;
   private long empty;
   private long whitePieces;
   private long blackPieces;
@@ -89,6 +96,8 @@ public class Bitboard {
     this.legalMoves = new ArrayList<>();
     updateBitboard();
     generateLegalMoves();
+    this.materialCount = 0;
+    this.squareBonuses = 0;
   }
 
   public void fenConverter(String fen) {
@@ -129,6 +138,150 @@ public class Bitboard {
     setOccupied();
     setEmpty();
     setEnemyAttackMap();
+  }
+
+  public void updateMaterialCount(Move move) {
+    char capturedPiece = move.getCapturedPiece();
+
+    switch (capturedPiece) {
+      case 'Q' -> materialCount -= queenValue;
+      case 'R' -> materialCount -= rookValue;
+      case 'B' -> materialCount -= bishopValue;
+      case 'N' -> materialCount -= knightValue;
+      case 'P' -> materialCount -= pawnValue;
+      case 'q' -> materialCount += queenValue;
+      case 'r' -> materialCount += rookValue;
+      case 'b' -> materialCount += bishopValue;
+      case 'n' -> materialCount += knightValue;
+      case 'p' -> materialCount += pawnValue;
+    }
+
+    if (move.getPromotion() != ' ') {
+      switch (move.getPromotion()) {
+        case 'Q' -> materialCount += (queenValue - pawnValue);
+        case 'R' -> materialCount += (rookValue - pawnValue);
+        case 'B' -> materialCount += (bishopValue - pawnValue);
+        case 'N' -> materialCount += (knightValue - pawnValue);
+        case 'q' -> materialCount -= (queenValue - pawnValue);
+        case 'r' -> materialCount -= (rookValue - pawnValue);
+        case 'b' -> materialCount -= (bishopValue - pawnValue);
+        case 'n' -> materialCount -= (knightValue - pawnValue);
+      }
+    }
+  }
+
+  public void updateSquareBonuses(Move move) {
+    PieceTables pieceTables = new PieceTables();
+    char piece = move.getPiece();
+    char capturedPiece = move.getCapturedPiece();
+    int origin = move.getOrigin();
+    int destination = move.getDestination();
+
+    if (move.getPromotion() != ' ') {
+      switch (move.getPromotion()) {
+        case 'Q' -> squareBonuses +=
+            (pieceTables.getQueenSquareValue(true, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'R' -> squareBonuses +=
+            (pieceTables.getRookSquareValue(true, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'B' -> squareBonuses +=
+            (pieceTables.getBishopSquareValue(true, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'N' -> squareBonuses +=
+            (pieceTables.getKnightSquareValue(true, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'q' -> squareBonuses -=
+            (pieceTables.getQueenSquareValue(false, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'r' -> squareBonuses -=
+            (pieceTables.getRookSquareValue(false, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'b' -> squareBonuses -=
+            (pieceTables.getBishopSquareValue(false, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'n' -> squareBonuses -=
+            (pieceTables.getKnightSquareValue(false, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+      }
+    } else {
+      switch (piece) {
+        case 'K' -> squareBonuses +=
+            (pieceTables.getKingSquareValue(true, destination)
+                - pieceTables.getKingSquareValue(true, origin));
+        case 'Q' -> squareBonuses +=
+            (pieceTables.getQueenSquareValue(true, destination)
+                - pieceTables.getQueenSquareValue(true, origin));
+        case 'R' -> squareBonuses +=
+            (pieceTables.getRookSquareValue(true, destination)
+                - pieceTables.getRookSquareValue(true, origin));
+        case 'B' -> squareBonuses +=
+            (pieceTables.getBishopSquareValue(true, destination)
+                - pieceTables.getBishopSquareValue(true, origin));
+        case 'N' -> squareBonuses +=
+            (pieceTables.getKnightSquareValue(true, destination)
+                - pieceTables.getKnightSquareValue(true, origin));
+        case 'P' -> squareBonuses +=
+            (pieceTables.getPawnSquareValue(true, destination)
+                - pieceTables.getPawnSquareValue(true, origin));
+        case 'k' -> squareBonuses -=
+            (pieceTables.getKingSquareValue(false, destination)
+                - pieceTables.getKingSquareValue(false, origin));
+        case 'q' -> squareBonuses -=
+            (pieceTables.getQueenSquareValue(false, destination)
+                - pieceTables.getQueenSquareValue(false, origin));
+        case 'r' -> squareBonuses -=
+            (pieceTables.getRookSquareValue(false, destination)
+                - pieceTables.getRookSquareValue(false, origin));
+        case 'b' -> squareBonuses -=
+            (pieceTables.getBishopSquareValue(false, destination)
+                - pieceTables.getBishopSquareValue(false, origin));
+        case 'n' -> squareBonuses -=
+            (pieceTables.getKnightSquareValue(false, destination)
+                - pieceTables.getKnightSquareValue(false, origin));
+        case 'p' -> squareBonuses -=
+            (pieceTables.getPawnSquareValue(false, destination)
+                - pieceTables.getPawnSquareValue(false, origin));
+      }
+    }
+
+    if (move.isEnPassant()) {
+      switch (capturedPiece) {
+        case 'P' -> squareBonuses -= pieceTables.getPawnSquareValue(true, destination - 8);
+        case 'p' -> squareBonuses += pieceTables.getPawnSquareValue(false, destination + 8);
+      }
+    } else {
+      switch (capturedPiece) {
+        case 'Q' -> squareBonuses -= pieceTables.getQueenSquareValue(true, destination);
+        case 'R' -> squareBonuses -= pieceTables.getRookSquareValue(true, destination);
+        case 'B' -> squareBonuses -= pieceTables.getBishopSquareValue(true, destination);
+        case 'N' -> squareBonuses -= pieceTables.getKnightSquareValue(true, destination);
+        case 'P' -> squareBonuses -= pieceTables.getPawnSquareValue(true, destination);
+        case 'q' -> squareBonuses += pieceTables.getQueenSquareValue(false, destination);
+        case 'r' -> squareBonuses += pieceTables.getRookSquareValue(false, destination);
+        case 'b' -> squareBonuses += pieceTables.getBishopSquareValue(false, destination);
+        case 'n' -> squareBonuses += pieceTables.getKnightSquareValue(false, destination);
+        case 'p' -> squareBonuses += pieceTables.getPawnSquareValue(false, destination);
+      }
+    }
+
+    if (move.isKingSideCastle()) {
+      switch (piece) {
+        case 'K' -> squareBonuses +=
+            (pieceTables.getRookSquareValue(true, 63) - pieceTables.getRookSquareValue(true, 61));
+        case 'k' -> squareBonuses -=
+            (pieceTables.getRookSquareValue(false, 7) - pieceTables.getRookSquareValue(false, 5));
+      }
+    }
+
+    if (move.isQueenSideCastle()) {
+      switch (piece) {
+        case 'K' -> squareBonuses +=
+            (pieceTables.getRookSquareValue(true, 56) - pieceTables.getRookSquareValue(true, 59));
+        case 'k' -> squareBonuses -=
+            (pieceTables.getRookSquareValue(false, 0) - pieceTables.getRookSquareValue(false, 3));
+      }
+    }
   }
 
   public void changeTurn() {

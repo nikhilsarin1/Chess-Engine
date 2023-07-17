@@ -1,6 +1,7 @@
 package ChessEngine.model;
 
 import java.util.List;
+import java.util.Map;
 
 public class MoveInfo {
   public long[] pieceBitboards;
@@ -14,6 +15,9 @@ public class MoveInfo {
   public boolean currentTurn;
   public long enPassantSquare;
   public int moveCount;
+  public int materialCount;
+  public int squareBonuses;
+  public Map<Long, Integer> boardState;
 
   public MoveInfo() {}
 }

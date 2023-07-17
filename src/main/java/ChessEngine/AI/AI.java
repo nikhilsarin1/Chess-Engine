@@ -4,11 +4,17 @@ import ChessEngine.model.Model;
 import ChessEngine.model.Move;
 
 public class AI {
-  final int pawnValue = 100;
-  final int knightValue = 300;
-  final int bishopValue = 300;
-  final int rookValue = 500;
-  final int queenValue = 900;
+  private static final int[] boardEdge = {
+    5, 4, 3, 2, 2, 3, 4, 5,
+    4, 3, 2, 1, 1, 2, 3, 4,
+    3, 2, 1, 0, 0, 1, 2, 3,
+    2, 1, 0, -1, -1, 0, 1, 2,
+    2, 1, 0, -1, -1, 0, 1, 2,
+    3, 2, 1, 0, 0, 1, 2, 3,
+    4, 3, 2, 1, 1, 2, 3, 4,
+    5, 4, 3, 2, 2, 3, 4, 5
+  };
+  static int mateScore = 1000000;
   private final Model model;
   public int searchCount;
   public int leafNodeCount;
@@ -21,102 +27,72 @@ public class AI {
   }
 
   public int evaluate() {
-    int whiteEval = countMaterial(true);
-    int blackEval = countMaterial(false);
-
-    int evaluation = whiteEval - blackEval;
-
+    int evaluation = model.getBitboard().materialCount + model.getBitboard().squareBonuses;
     int currentTurn = model.getCurrentTurn() ? 1 : -1;
+
+    long myKing =
+        model.getCurrentTurn()
+            ? model.getBitboard().pieceBitboards[6]
+            : model.getBitboard().pieceBitboards[0];
+    int myKingPosition = model.getBitboard().convertBitboardToInt(myKing);
+
+    long enemyKing =
+        model.getCurrentTurn()
+            ? model.getBitboard().pieceBitboards[0]
+            : model.getBitboard().pieceBitboards[6];
+    int enemyKingPosition = model.getBitboard().convertBitboardToInt(enemyKing);
+
+    // not sure why enemy king and my king need to be switched for evaluation to work correctly
+
+    evaluation += boardEdge[enemyKingPosition] * endGameWeight();
+    evaluation += distanceToEnemyKingWeight(myKingPosition, enemyKingPosition) * endGameWeight();
 
     return evaluation * currentTurn;
   }
 
-  public int countMaterial(boolean color) {
-    int material = 0;
-    PieceTables pieceTables = new PieceTables();
+  public int distanceToEnemyKingWeight(int myKingPosition, int enemyKingPosition) {
+    // Calculate the distance between the two kings
+    int distance =
+        Math.abs(myKingPosition % 8 - enemyKingPosition % 8)
+            + Math.abs(myKingPosition / 8 - enemyKingPosition / 8);
 
-    if (color) {
-      long[] queens =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[1]);
-      for (long queen : queens) {
-        int position = model.getBitboard().convertBitboardToInt(queen);
-        material += queenValue + pieceTables.getQueenSquareValue(true, position);
-      }
-      long[] rooks =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[2]);
-      for (long rook : rooks) {
-        int position = model.getBitboard().convertBitboardToInt(rook);
-        material += rookValue + pieceTables.getRookSquareValue(true, position);
-      }
-      long[] bishops =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[3]);
-      for (long bishop : bishops) {
-        int position = model.getBitboard().convertBitboardToInt(bishop);
-        material += bishopValue + pieceTables.getBishopSquareValue(true, position);
-      }
-      long[] knights =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[4]);
-      for (long knight : knights) {
-        int position = model.getBitboard().convertBitboardToInt(knight);
-        material += knightValue + pieceTables.getKnightSquareValue(true, position);
-      }
-      long[] pawns =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[5]);
-      for (long pawn : pawns) {
-        int position = model.getBitboard().convertBitboardToInt(pawn);
-        material += pawnValue + pieceTables.getPawnSquareValue(true, position);
-      }
-      long[] kings =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[0]);
-      for (long king : kings) {
-        int position = model.getBitboard().convertBitboardToInt(king);
-        material += pieceTables.getKingSquareValue(true, position);
-      }
+    // Assign weights based on the distance
+    if (distance <= 2) {
+      return 10;
+    } else if (distance <= 4) {
+      return 5;
     } else {
-      long[] queens =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[7]);
-      for (long queen : queens) {
-        int position = model.getBitboard().convertBitboardToInt(queen);
-        material += queenValue + pieceTables.getQueenSquareValue(false, position);
-      }
-      long[] rooks =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[8]);
-      for (long rook : rooks) {
-        int position = model.getBitboard().convertBitboardToInt(rook);
-        material += rookValue + pieceTables.getRookSquareValue(false, position);
-      }
-      long[] bishops =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[9]);
-      for (long bishop : bishops) {
-        int position = model.getBitboard().convertBitboardToInt(bishop);
-        material += bishopValue + pieceTables.getBishopSquareValue(false, position);
-      }
-      long[] knights =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[10]);
-      for (long knight : knights) {
-        int position = model.getBitboard().convertBitboardToInt(knight);
-        material += knightValue + pieceTables.getKnightSquareValue(false, position);
-      }
-      long[] pawns =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[11]);
-      for (long pawn : pawns) {
-        int position = model.getBitboard().convertBitboardToInt(pawn);
-        material += pawnValue + pieceTables.getPawnSquareValue(false, position);
-      }
-      long[] kings =
-          model.getBitboard().getIndividualPieceBitboards(model.getBitboard().pieceBitboards[6]);
-      for (long king : kings) {
-        int position = model.getBitboard().convertBitboardToInt(king);
-        material += pieceTables.getKingSquareValue(false, position);
-      }
+      return 0;
     }
-    return material;
+  }
+
+  public int endGameWeight() {
+    int weight = 0;
+    int weightIncrement = 4;
+    int pieceCount = Long.bitCount(model.getBitboard().occupied);
+
+    if (pieceCount <= 16) {
+      weight = weightIncrement * (16 - pieceCount);
+    }
+    return weight;
   }
 
   public int search(int depth, int alpha, int beta) {
     long zobristKey = model.getZobristKey();
 
     TranspositionEntry entry = model.getTranspositionTable().getPosition(zobristKey);
+
+    if (depth != 6) {
+      if (model.isDraw() || model.boardState.get(zobristKey) > 1) {
+        return 0;
+      }
+      alpha = Math.max(alpha, -mateScore - depth);
+      beta = Math.min(beta, mateScore + depth);
+
+      if (alpha >= beta) {
+        return alpha;
+      }
+    }
 
     if (entry != null && entry.depth() >= depth) {
       if (entry.flag() == TranspositionEntry.Flag.EXACT) {
@@ -133,13 +109,7 @@ public class AI {
       return evaluate();
     }
 
-    if (model.isCheckmate()) {
-      return -9999999 - depth;
-    } else if (model.isDraw()) {
-      return 0;
-    }
-
-    int bestEvaluation = -999999999;
+    int bestEvaluation = -99999999;
     Move bestMoveAtCurrentDepth = null;
     TranspositionEntry.Flag flag = TranspositionEntry.Flag.UPPER_BOUND;
 

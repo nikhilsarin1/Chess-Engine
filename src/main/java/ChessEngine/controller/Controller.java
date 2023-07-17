@@ -52,7 +52,7 @@ public class Controller {
   public void botTurn() {
     long startTime = System.nanoTime(); // Capture the start time
     model.searching = true;
-    bot.search(5, -999999999, 999999999);
+    bot.search(6, -999999999, 999999999);
     long endTime = System.nanoTime(); // Capture the end time
     long elapsedTime = endTime - startTime;
     double elapsedSeconds = (double) elapsedTime / 1_000_000_000;
