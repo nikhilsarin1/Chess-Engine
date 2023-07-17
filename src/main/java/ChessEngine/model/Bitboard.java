@@ -82,6 +82,7 @@ public class Bitboard {
   public boolean blackKingSide;
   public boolean blackQueenSide;
   public List<Move> legalMoves;
+  public List<Move> legalCaptureMoves;
   public long occupied;
   public int materialCount;
   public int squareBonuses;
@@ -94,6 +95,7 @@ public class Bitboard {
     fenConverter(fen);
     this.enPassantSquare = 0L;
     this.legalMoves = new ArrayList<>();
+    this.legalCaptureMoves = new ArrayList<>();
     updateBitboard();
     generateLegalMoves();
     this.materialCount = 0;
@@ -294,6 +296,9 @@ public class Bitboard {
 
   public void generateLegalMoves() {
     List<Move> legalMoves = new ArrayList<>();
+    List<Move> legalCaptureMoves = new ArrayList<>();
+    this.legalCaptureMoves = legalCaptureMoves;
+
     if (currentTurn) {
       if (attackingPieces == 2) {
         legalMoves.addAll(kingMoves(pieceBitboards[0], true));
@@ -318,6 +323,7 @@ public class Bitboard {
       }
     }
     legalMoves.sort(new MoveComparator());
+    legalCaptureMoves.sort(new MoveComparator());
     this.legalMoves = legalMoves;
   }
 
@@ -727,6 +733,12 @@ public class Bitboard {
     this.enPassantSquare = square;
   }
 
+  public void addCaptureMove(Move move) {
+    if (move.getCapturedPiece() != ' ') {
+      legalCaptureMoves.add(move);
+    }
+  }
+
   public List<Move> whitePawnMoves(long whitePawns) {
     List<Move> moveList = new ArrayList<>();
     long[] individualPawns = getIndividualPieceBitboards(whitePawns);
@@ -769,6 +781,10 @@ public class Bitboard {
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
+          addCaptureMove(promotionQueen);
+          addCaptureMove(promotionRook);
+          addCaptureMove(promotionBishop);
+          addCaptureMove(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
           long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
           long saveAttackMap = attackMap;
@@ -790,6 +806,7 @@ public class Bitboard {
           if ((attackMap & pieceBitboards[0]) == 0L) {
             Move move = new Move(origin, destination, 'P', 'p', false, false, true, ' ');
             moveList.add(move);
+            addCaptureMove(move);
           }
           pieceBitboards = savePieceBitboards;
           attackMap = saveAttackMap;
@@ -806,6 +823,7 @@ public class Bitboard {
         } else {
           Move move = new Move(origin, destination, 'P', capturedPiece);
           moveList.add(move);
+          addCaptureMove(move);
         }
       }
     }
@@ -831,7 +849,6 @@ public class Bitboard {
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
-
         } else {
           Move move = new Move(origin, destination, 'p', ' ');
           moveList.add(move);
@@ -855,6 +872,10 @@ public class Bitboard {
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
+          addCaptureMove(promotionQueen);
+          addCaptureMove(promotionRook);
+          addCaptureMove(promotionBishop);
+          addCaptureMove(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
           long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
           long saveAttackMap = attackMap;
@@ -876,6 +897,7 @@ public class Bitboard {
           if ((attackMap & pieceBitboards[6]) == 0L) {
             Move move = new Move(origin, destination, 'p', 'P', false, false, true, ' ');
             moveList.add(move);
+            addCaptureMove(move);
           }
           pieceBitboards = savePieceBitboards;
           attackMap = saveAttackMap;
@@ -892,6 +914,7 @@ public class Bitboard {
         } else {
           Move move = new Move(origin, destination, 'p', capturedPiece);
           moveList.add(move);
+          addCaptureMove(move);
         }
       }
     }
@@ -996,6 +1019,7 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
+        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1047,6 +1071,7 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
+        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1099,6 +1124,7 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
+        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1166,6 +1192,7 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
+        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1215,6 +1242,7 @@ public class Bitboard {
         move = new Move(origin, destination, piece, capturedPiece);
       }
       moveList.add(move);
+      addCaptureMove(move);
     }
     List<Move> castleMoves = castleMoves(king, color);
     moveList.addAll(castleMoves);

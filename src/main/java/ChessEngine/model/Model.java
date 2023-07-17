@@ -90,6 +90,7 @@ public class Model {
         Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
     moveInfo.charBoard = Arrays.copyOf(getBitboard().charBoard, getBitboard().charBoard.length);
     moveInfo.legalMoves = new ArrayList<>(bitboard.getLegalMoves());
+    moveInfo.legalCaptureMoves = new ArrayList<>(bitboard.legalCaptureMoves);
     moveInfo.zobristKey = zobristKey;
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
@@ -347,6 +348,7 @@ public class Model {
     bitboard.currentTurn = currentTurn;
     bitboard.updateBitboard();
     bitboard.legalMoves = moveInfo.legalMoves;
+    bitboard.legalCaptureMoves = moveInfo.legalCaptureMoves;
     zobristKey = moveInfo.zobristKey;
     bitboard.materialCount = moveInfo.materialCount;
     bitboard.squareBonuses = moveInfo.squareBonuses;

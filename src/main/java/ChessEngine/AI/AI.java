@@ -106,7 +106,7 @@ public class AI {
     }
 
     if (depth == 0) {
-      return evaluate();
+      return quiescenceSearch(alpha, beta);
     }
 
     int bestEvaluation = -99999999;
@@ -138,6 +138,52 @@ public class AI {
 
     bestMove = bestMoveAtCurrentDepth;
     return bestEvaluation;
+  }
+
+  private int quiescenceSearch(int alpha, int beta) {
+    int evaluation = evaluate();
+
+    if (evaluation >= beta) {
+      return beta;
+    }
+
+    if (evaluation > alpha) {
+      alpha = evaluation;
+    }
+
+    if (model.isCheck()) {
+      for (Move move : model.getBitboard().getLegalMoves()) {
+        searchCount++;
+        model.movePiece(move, false);
+        int score = -quiescenceSearch(-beta, -alpha);
+        model.undoMove();
+
+        if (score >= beta) {
+          return beta;
+        }
+
+        if (score > alpha) {
+          alpha = score;
+        }
+      }
+    } else {
+      for (Move move : model.getBitboard().legalCaptureMoves) {
+        searchCount++;
+        model.movePiece(move, false);
+        int score = -quiescenceSearch(-beta, -alpha);
+        model.undoMove();
+
+        if (score >= beta) {
+          return beta;
+        }
+
+        if (score > alpha) {
+          alpha = score;
+        }
+      }
+    }
+
+    return alpha;
   }
 
   public void fullSearch(int depth) {
