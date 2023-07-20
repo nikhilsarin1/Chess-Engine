@@ -1,6 +1,6 @@
 package ChessEngine.controller;
 
-import ChessEngine.AI.AI;
+import ChessEngine.AI.Search;
 import ChessEngine.model.Model;
 import ChessEngine.model.Move;
 
@@ -8,13 +8,15 @@ import java.util.List;
 
 public class Controller {
   private final Model model;
-  private final AI bot;
+  private final Search bot;
+  public int maxDepth;
   private int origin;
 
   public Controller(Model model) {
     this.model = model;
     this.origin = -1;
-    this.bot = new AI(model);
+    this.maxDepth = 6;
+    this.bot = new Search(model);
   }
 
   public int getOrigin() {
@@ -45,14 +47,15 @@ public class Controller {
       }
     }
     assert selectedMove != null;
-    model.movePiece(selectedMove, true);
+    model.movePiece(selectedMove, true, -1);
     this.origin = -1;
   }
 
   public void botTurn() {
+    maxDepth = 6;
     long startTime = System.nanoTime(); // Capture the start time
     model.searching = true;
-    bot.search(6, -999999999, 999999999);
+    bot.search(maxDepth, 0, -999999999, 999999999);
     long endTime = System.nanoTime(); // Capture the end time
     long elapsedTime = endTime - startTime;
     double elapsedSeconds = (double) elapsedTime / 1_000_000_000;
@@ -60,8 +63,9 @@ public class Controller {
     System.out.println("Search Time: " + elapsedSeconds);
     System.out.println("Moves/sec: " + bot.searchCount / elapsedSeconds);
     Move move = bot.getBestMove();
-    model.movePiece(move, true);
+    model.movePiece(move, true, -1);
     model.searching = false;
     bot.searchCount = 0;
+    bot.resetBestMove();
   }
 }

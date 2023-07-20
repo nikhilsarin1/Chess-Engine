@@ -19,6 +19,9 @@ public class MoveInfo {
   public int materialCount;
   public int squareBonuses;
   public Map<Long, Integer> boardState;
+  public long pawnHashKey;
+  public boolean hasWhiteCastled;
+  public boolean hasBlackCastled;
 
   public MoveInfo() {}
 }

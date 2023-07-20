@@ -6,7 +6,7 @@ import ChessEngine.AI.PieceTables;
 import java.util.*;
 
 public class Bitboard {
-  static long[] fileMasks = {
+  public static long[] fileMasks = {
     0x101010101010101L, // File a
     0x202020202020202L, // File b
     0x404040404040404L, // File c
@@ -16,7 +16,7 @@ public class Bitboard {
     0x4040404040404040L, // File g
     0x8080808080808080L // File h
   };
-  static long[] rankMasks = {
+  public static long[] rankMasks = {
     0xFFL, // Rank 1
     0xFF00L, // Rank 2
     0xFF0000L, // Rank 3
@@ -26,7 +26,7 @@ public class Bitboard {
     0xFF000000000000L, // Rank 7
     0xFF00000000000000L // Rank 8
   };
-  static long[] diagonalMasks = {
+  public static long[] diagonalMasks = {
     0x1L, // a1
     0x102L, // a2 to b1
     0x10204L, // a3 to c1
@@ -43,7 +43,7 @@ public class Bitboard {
     0x4080000000000000L, // g8 to h7
     0x8000000000000000L // h8
   };
-  static long[] antiDiagonalMasks = {
+  public static long[] antiDiagonalMasks = {
     0x80L, // h1
     0x8040L, // h2 to g1
     0x804020L, // h3 to f1
@@ -60,10 +60,10 @@ public class Bitboard {
     0x201000000000000L, // b8 to a7
     0x100000000000000L // a8
   };
-  static long whiteKingSideMask = 0x70L; // white king side castle squares
-  static long whiteQueenSideMask = 0x1CL; // white queen side castle squares
-  static long blackKingSideMask = 0x7000000000000000L; // black king side castle squares
-  static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
+  public static long whiteKingSideMask = 0x70L; // white king side castle squares
+  public static long whiteQueenSideMask = 0x1CL; // white queen side castle squares
+  public static long blackKingSideMask = 0x7000000000000000L; // black king side castle squares
+  public static long blackQueenSideMask = 0x1C00000000000000L; // black queen side castle squares
   final int pawnValue = 100;
   final int knightValue = 300;
   final int bishopValue = 300;
@@ -82,10 +82,10 @@ public class Bitboard {
   public boolean blackKingSide;
   public boolean blackQueenSide;
   public List<Move> legalMoves;
-  public List<Move> legalCaptureMoves;
   public long occupied;
   public int materialCount;
   public int squareBonuses;
+  public Move[][] killerMoves;
   private long empty;
   private long whitePieces;
   private long blackPieces;
@@ -95,10 +95,10 @@ public class Bitboard {
     fenConverter(fen);
     this.enPassantSquare = 0L;
     this.legalMoves = new ArrayList<>();
-    this.legalCaptureMoves = new ArrayList<>();
+    this.killerMoves = new Move[50][2];
     updateBitboard();
-    generateLegalMoves();
-    this.materialCount = 0;
+    generateLegalMoves(0);
+    this.materialCount = -1400;
     this.squareBonuses = 0;
   }
 
@@ -294,10 +294,8 @@ public class Bitboard {
     return legalMoves;
   }
 
-  public void generateLegalMoves() {
+  public void generateLegalMoves(int depth) {
     List<Move> legalMoves = new ArrayList<>();
-    List<Move> legalCaptureMoves = new ArrayList<>();
-    this.legalCaptureMoves = legalCaptureMoves;
 
     if (currentTurn) {
       if (attackingPieces == 2) {
@@ -322,8 +320,8 @@ public class Bitboard {
         legalMoves.addAll(blackPawnMoves(pieceBitboards[11]));
       }
     }
-    legalMoves.sort(new MoveComparator());
-    legalCaptureMoves.sort(new MoveComparator());
+    legalMoves.sort(new MoveComparator(this, depth));
+    //    legalCaptureMoves.sort(new MoveComparator(this, depth));
     this.legalMoves = legalMoves;
   }
 
@@ -588,6 +586,39 @@ public class Bitboard {
     } else return 0L;
   }
 
+  public void recordKillerMove(Move move, int depth) {
+    if (move == null) {
+      return;
+    }
+
+    if (killerMoves[depth][0] == null
+        || (move.getOrigin() != killerMoves[depth][0].getOrigin()
+            && move.getDestination() != killerMoves[depth][0].getDestination())) {
+      killerMoves[depth][1] = killerMoves[depth][0];
+      killerMoves[depth][0] = move;
+    }
+  }
+
+  public boolean isKillerMove(Move move, int depth) {
+    if (depth < 0 || move == null) {
+      return false;
+    }
+    if (killerMoves[depth][0] != null) {
+      Move killerMove = killerMoves[depth][0];
+      return move.getOrigin() == killerMove.getOrigin()
+          && move.getDestination() == killerMove.getDestination()
+          && move.getPromotion() == killerMove.getPromotion()
+          && move.isEnPassant() == killerMove.isEnPassant();
+    } else if (killerMoves[depth][1] != null) {
+      Move killerMove = killerMoves[depth][1];
+      return move.getOrigin() == killerMove.getOrigin()
+          && move.getDestination() == killerMove.getDestination()
+          && move.getPromotion() == killerMove.getPromotion()
+          && move.isEnPassant() == killerMove.isEnPassant();
+    }
+    return false;
+  }
+
   public long convertIntToBitboard(int position) {
     return 1L << ((7 - (position / 8)) * 8 + (position % 8));
   }
@@ -733,12 +764,6 @@ public class Bitboard {
     this.enPassantSquare = square;
   }
 
-  public void addCaptureMove(Move move) {
-    if (move.getCapturedPiece() != ' ') {
-      legalCaptureMoves.add(move);
-    }
-  }
-
   public List<Move> whitePawnMoves(long whitePawns) {
     List<Move> moveList = new ArrayList<>();
     long[] individualPawns = getIndividualPieceBitboards(whitePawns);
@@ -781,10 +806,6 @@ public class Bitboard {
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
-          addCaptureMove(promotionQueen);
-          addCaptureMove(promotionRook);
-          addCaptureMove(promotionBishop);
-          addCaptureMove(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
           long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
           long saveAttackMap = attackMap;
@@ -806,7 +827,6 @@ public class Bitboard {
           if ((attackMap & pieceBitboards[0]) == 0L) {
             Move move = new Move(origin, destination, 'P', 'p', false, false, true, ' ');
             moveList.add(move);
-            addCaptureMove(move);
           }
           pieceBitboards = savePieceBitboards;
           attackMap = saveAttackMap;
@@ -823,7 +843,6 @@ public class Bitboard {
         } else {
           Move move = new Move(origin, destination, 'P', capturedPiece);
           moveList.add(move);
-          addCaptureMove(move);
         }
       }
     }
@@ -872,10 +891,6 @@ public class Bitboard {
           moveList.add(promotionRook);
           moveList.add(promotionBishop);
           moveList.add(promotionKnight);
-          addCaptureMove(promotionQueen);
-          addCaptureMove(promotionRook);
-          addCaptureMove(promotionBishop);
-          addCaptureMove(promotionKnight);
         } else if (destinationBitboard == enPassantSquare) {
           long[] savePieceBitboards = Arrays.copyOf(pieceBitboards, pieceBitboards.length);
           long saveAttackMap = attackMap;
@@ -897,7 +912,6 @@ public class Bitboard {
           if ((attackMap & pieceBitboards[6]) == 0L) {
             Move move = new Move(origin, destination, 'p', 'P', false, false, true, ' ');
             moveList.add(move);
-            addCaptureMove(move);
           }
           pieceBitboards = savePieceBitboards;
           attackMap = saveAttackMap;
@@ -914,7 +928,6 @@ public class Bitboard {
         } else {
           Move move = new Move(origin, destination, 'p', capturedPiece);
           moveList.add(move);
-          addCaptureMove(move);
         }
       }
     }
@@ -1019,7 +1032,6 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
-        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1071,7 +1083,6 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
-        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1124,7 +1135,6 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
-        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1192,7 +1202,6 @@ public class Bitboard {
         char capturedPiece = charBoard[destination];
         Move move = new Move(origin, destination, piece, capturedPiece);
         moveList.add(move);
-        addCaptureMove(move);
       }
     }
     return moveList;
@@ -1242,7 +1251,6 @@ public class Bitboard {
         move = new Move(origin, destination, piece, capturedPiece);
       }
       moveList.add(move);
-      addCaptureMove(move);
     }
     List<Move> castleMoves = castleMoves(king, color);
     moveList.addAll(castleMoves);

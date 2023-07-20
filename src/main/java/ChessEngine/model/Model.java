@@ -12,6 +12,10 @@ public class Model {
   public Map<Long, Integer> boardState;
   public boolean searching;
   public TranspositionTable transpositionTable;
+  public HashMap<Long, Integer> pawnTable;
+  public long pawnHashKey;
+  public boolean hasWhiteCastled;
+  public boolean hasBlackCastled;
   private boolean currentTurn;
   private boolean selectedPlayer;
   private int lastMoveOrigin;
@@ -32,7 +36,11 @@ public class Model {
     this.searching = false;
     Zobrist.getInstance(bitboard);
     this.zobristKey = Zobrist.getZobristKey();
+    this.pawnHashKey = Zobrist.getPawnHashKey();
     this.transpositionTable = new TranspositionTable();
+    this.pawnTable = new HashMap<>();
+    this.hasWhiteCastled = false;
+    this.hasBlackCastled = false;
   }
 
   public Bitboard getBitboard() {
@@ -53,10 +61,6 @@ public class Model {
 
   public long getZobristKey() {
     return zobristKey;
-  }
-
-  public TranspositionTable getTranspositionTable() {
-    return transpositionTable;
   }
 
   public boolean getSelectedPlayer() {
@@ -84,13 +88,12 @@ public class Model {
     return false;
   }
 
-  public void movePiece(Move move, boolean isActualMove) {
+  public void movePiece(Move move, boolean isActualMove, int depth) {
     MoveInfo moveInfo = new MoveInfo();
     moveInfo.pieceBitboards =
         Arrays.copyOf(bitboard.pieceBitboards, bitboard.pieceBitboards.length);
     moveInfo.charBoard = Arrays.copyOf(getBitboard().charBoard, getBitboard().charBoard.length);
     moveInfo.legalMoves = new ArrayList<>(bitboard.getLegalMoves());
-    moveInfo.legalCaptureMoves = new ArrayList<>(bitboard.legalCaptureMoves);
     moveInfo.zobristKey = zobristKey;
     moveInfo.WK = bitboard.whiteKingSide;
     moveInfo.WQ = bitboard.whiteQueenSide;
@@ -101,6 +104,9 @@ public class Model {
     moveInfo.materialCount = bitboard.materialCount;
     moveInfo.squareBonuses = bitboard.squareBonuses;
     moveInfo.boardState = new HashMap<>(boardState);
+    moveInfo.pawnHashKey = pawnHashKey;
+    moveInfo.hasWhiteCastled = hasWhiteCastled;
+    moveInfo.hasBlackCastled = hasBlackCastled;
     int origin = move.getOrigin();
     int destination = move.getDestination();
     char piece = move.getPiece();
@@ -148,6 +154,7 @@ public class Model {
         bitboard.whiteQueenSide = false;
 
         if (move.isKingSideCastle()) {
+          hasWhiteCastled = true;
           long removeRook = bitboard.convertIntToBitboard(63);
           long addRook = bitboard.convertIntToBitboard(61);
           bitboard.pieceBitboards[2] ^= removeRook;
@@ -155,6 +162,7 @@ public class Model {
           bitboard.charBoard[63] = ' ';
           bitboard.charBoard[61] = 'R';
         } else if (move.isQueenSideCastle()) {
+          hasWhiteCastled = true;
           long removeRook = bitboard.convertIntToBitboard(56);
           long addRook = bitboard.convertIntToBitboard(59);
           bitboard.pieceBitboards[2] ^= removeRook;
@@ -233,6 +241,7 @@ public class Model {
         bitboard.blackQueenSide = false;
 
         if (move.isKingSideCastle()) {
+          hasBlackCastled = true;
           long removeRook = bitboard.convertIntToBitboard(7);
           long addRook = bitboard.convertIntToBitboard(5);
           bitboard.pieceBitboards[8] ^= removeRook;
@@ -240,6 +249,7 @@ public class Model {
           bitboard.charBoard[7] = ' ';
           bitboard.charBoard[5] = 'r';
         } else if (move.isQueenSideCastle()) {
+          hasBlackCastled = true;
           long removeRook = bitboard.convertIntToBitboard(0);
           long addRook = bitboard.convertIntToBitboard(3);
           bitboard.pieceBitboards[8] ^= removeRook;
@@ -326,11 +336,12 @@ public class Model {
     changeTurn();
     bitboard.changeTurn();
     bitboard.updateBitboard();
-    bitboard.generateLegalMoves();
+    bitboard.generateLegalMoves(depth);
     boardState.put(zobristKey, boardState.getOrDefault(zobristKey, 0) + 1);
 
     if (isActualMove) {
       notifyObservers();
+      //      transpositionTable.clear();
     }
   }
 
@@ -348,11 +359,13 @@ public class Model {
     bitboard.currentTurn = currentTurn;
     bitboard.updateBitboard();
     bitboard.legalMoves = moveInfo.legalMoves;
-    bitboard.legalCaptureMoves = moveInfo.legalCaptureMoves;
     zobristKey = moveInfo.zobristKey;
     bitboard.materialCount = moveInfo.materialCount;
     bitboard.squareBonuses = moveInfo.squareBonuses;
     boardState = moveInfo.boardState;
+    pawnHashKey = moveInfo.pawnHashKey;
+    hasWhiteCastled = moveInfo.hasWhiteCastled;
+    hasBlackCastled = moveInfo.hasBlackCastled;
   }
 
   public void updateZobristKey(Move move, MoveInfo moveInfo) {
@@ -365,6 +378,13 @@ public class Model {
       case 'K' -> {
         zobristKey ^= Zobrist.board[0][origin];
         zobristKey ^= Zobrist.board[0][destination];
+        if (move.isKingSideCastle()) {
+          zobristKey ^= Zobrist.board[2][63];
+          zobristKey ^= Zobrist.board[2][61];
+        } else if (move.isQueenSideCastle()) {
+          zobristKey ^= Zobrist.board[2][56];
+          zobristKey ^= Zobrist.board[2][59];
+        }
       }
       case 'Q' -> {
         zobristKey ^= Zobrist.board[1][origin];
@@ -384,6 +404,7 @@ public class Model {
       }
       case 'P' -> {
         zobristKey ^= Zobrist.board[5][origin];
+        pawnHashKey ^= Zobrist.board[5][origin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
             case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
@@ -393,11 +414,19 @@ public class Model {
           }
         } else {
           zobristKey ^= Zobrist.board[5][destination];
+          pawnHashKey ^= Zobrist.board[5][destination];
         }
       }
       case 'k' -> {
         zobristKey ^= Zobrist.board[6][origin];
         zobristKey ^= Zobrist.board[6][destination];
+        if (move.isKingSideCastle()) {
+          zobristKey ^= Zobrist.board[8][7];
+          zobristKey ^= Zobrist.board[8][5];
+        } else if (move.isQueenSideCastle()) {
+          zobristKey ^= Zobrist.board[8][0];
+          zobristKey ^= Zobrist.board[8][3];
+        }
       }
       case 'q' -> {
         zobristKey ^= Zobrist.board[7][origin];
@@ -417,6 +446,7 @@ public class Model {
       }
       case 'p' -> {
         zobristKey ^= Zobrist.board[11][origin];
+        pawnHashKey ^= Zobrist.board[11][origin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
             case 'q' -> zobristKey ^= Zobrist.board[7][destination];
@@ -426,6 +456,7 @@ public class Model {
           }
         } else {
           zobristKey ^= Zobrist.board[11][destination];
+          pawnHashKey ^= Zobrist.board[11][destination];
         }
       }
     }
@@ -437,18 +468,30 @@ public class Model {
         case 'R' -> zobristKey ^= Zobrist.board[2][destination];
         case 'B' -> zobristKey ^= Zobrist.board[3][destination];
         case 'N' -> zobristKey ^= Zobrist.board[4][destination];
-        case 'P' -> zobristKey ^= Zobrist.board[5][destination];
+        case 'P' -> {
+          zobristKey ^= Zobrist.board[5][destination];
+          pawnHashKey ^= Zobrist.board[5][destination];
+        }
         case 'k' -> zobristKey ^= Zobrist.board[6][destination];
         case 'q' -> zobristKey ^= Zobrist.board[7][destination];
         case 'r' -> zobristKey ^= Zobrist.board[8][destination];
         case 'b' -> zobristKey ^= Zobrist.board[9][destination];
         case 'n' -> zobristKey ^= Zobrist.board[10][destination];
-        case 'p' -> zobristKey ^= Zobrist.board[11][destination];
+        case 'p' -> {
+          pawnHashKey ^= Zobrist.board[11][destination];
+          zobristKey ^= Zobrist.board[11][destination];
+        }
       }
     } else {
       switch (capturedPiece) {
-        case 'P' -> zobristKey ^= Zobrist.board[5][destination - 8];
-        case 'p' -> zobristKey ^= Zobrist.board[11][destination + 8];
+        case 'P' -> {
+          zobristKey ^= Zobrist.board[5][destination - 8];
+          pawnHashKey ^= Zobrist.board[5][destination - 8];
+        }
+        case 'p' -> {
+          zobristKey ^= Zobrist.board[11][destination + 8];
+          pawnHashKey ^= Zobrist.board[11][destination + 8];
+        }
       }
     }
 

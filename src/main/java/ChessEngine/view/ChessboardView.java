@@ -1,5 +1,6 @@
 package ChessEngine.view;
 
+import ChessEngine.AI.Evaluation;
 import ChessEngine.controller.Controller;
 import ChessEngine.model.Model;
 import ChessEngine.model.ModelObserver;
@@ -40,6 +41,7 @@ public class ChessboardView implements ModelObserver, FXComponent {
   private int lastMoveDestination;
   private boolean isFlashing;
   private boolean orientation;
+  private Evaluation evaluation;
 
   public ChessboardView(Model model, Controller controller) {
     this.model = model;
@@ -52,9 +54,13 @@ public class ChessboardView implements ModelObserver, FXComponent {
     this.lastMoveDestination = -1;
     this.orientation = true;
     showColorSelectionDialog();
+    //    flipBoard();
+    //    evaluation = new Evaluation(model);
+    //    evaluation.whitePawnEvaluation();
   }
 
   public Parent render() {
+    //    int[] h = model.getBitboard().convertBitboardToArrayOfIndexes(evaluation.check);
     gridPane.setPadding(new Insets(10));
 
     // Create column and row constraints for the GridPane
@@ -77,6 +83,12 @@ public class ChessboardView implements ModelObserver, FXComponent {
       if (square == lastMoveOrigin || square == lastMoveDestination) {
         highlightSquare(rectangle);
       }
+
+      //      for (int j=0; j<h.length; j++) {
+      //        if (h[j] == square) {
+      //          highlightSquare(rectangle);
+      //        }
+      //      }
 
       // Set mouse event handlers for square highlighting and piece movement
       rectangle.setOnMouseEntered(event -> highlightOutline(rectangle));

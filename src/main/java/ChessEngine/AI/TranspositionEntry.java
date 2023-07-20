@@ -3,7 +3,7 @@ package ChessEngine.AI;
 import ChessEngine.model.Move;
 
 public record TranspositionEntry(
-    int depth, int score, ChessEngine.AI.TranspositionEntry.Flag flag, Move bestMove) {
+    int ply, int score, ChessEngine.AI.TranspositionEntry.Flag flag, Move bestMove) {
 
   public enum Flag {
     EXACT,

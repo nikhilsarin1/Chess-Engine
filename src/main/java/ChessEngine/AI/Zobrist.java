@@ -94,7 +94,7 @@ public class Zobrist {
     if (bitboard.blackKingSide) {
       key ^= castle[2];
     }
-    if (bitboard.whiteQueenSide) {
+    if (bitboard.blackQueenSide) {
       key ^= castle[3];
     }
 
@@ -102,6 +102,19 @@ public class Zobrist {
       key ^= turn;
     }
 
+    return key;
+  }
+
+  public static long getPawnHashKey() {
+    long key = 0;
+
+    for (int i = 0; i < 64; i++) {
+      if (bitboard.charBoard[i] == 'P') {
+        key ^= board[5][i];
+      } else if (bitboard.charBoard[i] == 'p') {
+        key ^= board[11][i];
+      }
+    }
     return key;
   }
 }
