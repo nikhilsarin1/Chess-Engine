@@ -5,8 +5,8 @@ import ChessEngine.model.Move;
 
 public class Search {
   static int mateScore = 1000000;
+  public final Evaluation evaluation;
   private final Model model;
-  private final Evaluation evaluation;
   public int searchCount;
   public int leafNodeCount;
   private Move bestMove;
@@ -59,12 +59,12 @@ public class Search {
       int score = -search(depth - 1, ply + 1, -beta, -alpha);
       model.undoMove();
 
-      alpha = Math.max(alpha, evaluation);
-
       if (score > evaluation) {
         evaluation = score;
         bestMoveAtCurrentDepth = move; // Update the best move at this depth
       }
+
+      alpha = Math.max(alpha, evaluation);
 
       if (alpha >= beta) {
         model.getBitboard().recordKillerMove(move, depth);
@@ -82,8 +82,10 @@ public class Search {
       flag = TranspositionEntry.Flag.EXACT;
     }
 
-    model.transpositionTable.storePosition(
-        zobristKey, ply, evaluation, flag, bestMoveAtCurrentDepth);
+    if (evaluation != 0) {
+      model.transpositionTable.storePosition(
+          zobristKey, ply, evaluation, flag, bestMoveAtCurrentDepth);
+    }
 
     bestMove = bestMoveAtCurrentDepth;
     return evaluation;

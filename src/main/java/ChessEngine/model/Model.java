@@ -1,5 +1,6 @@
 package ChessEngine.model;
 
+import ChessEngine.AI.PawnEntry;
 import ChessEngine.AI.TranspositionTable;
 import ChessEngine.AI.Zobrist;
 
@@ -12,8 +13,10 @@ public class Model {
   public Map<Long, Integer> boardState;
   public boolean searching;
   public TranspositionTable transpositionTable;
-  public HashMap<Long, Integer> pawnTable;
+  public HashMap<Long, PawnEntry> pawnTable;
+  public HashMap<Long, Integer> kingPawnProximityTable;
   public long pawnHashKey;
+  public long kingPawnProximityHashKey;
   public boolean hasWhiteCastled;
   public boolean hasBlackCastled;
   private boolean currentTurn;
@@ -37,8 +40,10 @@ public class Model {
     Zobrist.getInstance(bitboard);
     this.zobristKey = Zobrist.getZobristKey();
     this.pawnHashKey = Zobrist.getPawnHashKey();
+    this.kingPawnProximityHashKey = Zobrist.getKingPawnProximityHashKey();
     this.transpositionTable = new TranspositionTable();
     this.pawnTable = new HashMap<>();
+    this.kingPawnProximityTable = new HashMap<>();
     this.hasWhiteCastled = false;
     this.hasBlackCastled = false;
   }
@@ -105,6 +110,7 @@ public class Model {
     moveInfo.squareBonuses = bitboard.squareBonuses;
     moveInfo.boardState = new HashMap<>(boardState);
     moveInfo.pawnHashKey = pawnHashKey;
+    moveInfo.kingPawnProximityHashKey = kingPawnProximityHashKey;
     moveInfo.hasWhiteCastled = hasWhiteCastled;
     moveInfo.hasBlackCastled = hasBlackCastled;
     int origin = move.getOrigin();
@@ -322,7 +328,7 @@ public class Model {
       }
     }
 
-    updateZobristKey(move, moveInfo);
+    updateHashKeys(move, moveInfo);
     bitboard.updateMaterialCount(move);
     bitboard.updateSquareBonuses(move);
     moveStack.push(moveInfo);
@@ -341,7 +347,9 @@ public class Model {
 
     if (isActualMove) {
       notifyObservers();
-      //      transpositionTable.clear();
+      // For some reason clearing the tt after every move massively improves the engine
+      // Have spent a lot of time trying to figure out why, but I haven't so far
+      transpositionTable.clear();
     }
   }
 
@@ -364,11 +372,12 @@ public class Model {
     bitboard.squareBonuses = moveInfo.squareBonuses;
     boardState = moveInfo.boardState;
     pawnHashKey = moveInfo.pawnHashKey;
+    kingPawnProximityHashKey = moveInfo.kingPawnProximityHashKey;
     hasWhiteCastled = moveInfo.hasWhiteCastled;
     hasBlackCastled = moveInfo.hasBlackCastled;
   }
 
-  public void updateZobristKey(Move move, MoveInfo moveInfo) {
+  public void updateHashKeys(Move move, MoveInfo moveInfo) {
     int origin = move.getOrigin();
     int destination = move.getDestination();
     char piece = move.getPiece();
@@ -378,6 +387,8 @@ public class Model {
       case 'K' -> {
         zobristKey ^= Zobrist.board[0][origin];
         zobristKey ^= Zobrist.board[0][destination];
+        kingPawnProximityHashKey ^= Zobrist.board[0][origin];
+        kingPawnProximityHashKey ^= Zobrist.board[0][destination];
         if (move.isKingSideCastle()) {
           zobristKey ^= Zobrist.board[2][63];
           zobristKey ^= Zobrist.board[2][61];
@@ -405,6 +416,7 @@ public class Model {
       case 'P' -> {
         zobristKey ^= Zobrist.board[5][origin];
         pawnHashKey ^= Zobrist.board[5][origin];
+        kingPawnProximityHashKey ^= Zobrist.board[5][origin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
             case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
@@ -415,11 +427,14 @@ public class Model {
         } else {
           zobristKey ^= Zobrist.board[5][destination];
           pawnHashKey ^= Zobrist.board[5][destination];
+          kingPawnProximityHashKey ^= Zobrist.board[5][destination];
         }
       }
       case 'k' -> {
         zobristKey ^= Zobrist.board[6][origin];
         zobristKey ^= Zobrist.board[6][destination];
+        kingPawnProximityHashKey ^= Zobrist.board[6][origin];
+        kingPawnProximityHashKey ^= Zobrist.board[6][destination];
         if (move.isKingSideCastle()) {
           zobristKey ^= Zobrist.board[8][7];
           zobristKey ^= Zobrist.board[8][5];
@@ -447,6 +462,7 @@ public class Model {
       case 'p' -> {
         zobristKey ^= Zobrist.board[11][origin];
         pawnHashKey ^= Zobrist.board[11][origin];
+        kingPawnProximityHashKey ^= Zobrist.board[11][origin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
             case 'q' -> zobristKey ^= Zobrist.board[7][destination];
@@ -457,6 +473,7 @@ public class Model {
         } else {
           zobristKey ^= Zobrist.board[11][destination];
           pawnHashKey ^= Zobrist.board[11][destination];
+          kingPawnProximityHashKey ^= Zobrist.board[11][destination];
         }
       }
     }
@@ -471,6 +488,7 @@ public class Model {
         case 'P' -> {
           zobristKey ^= Zobrist.board[5][destination];
           pawnHashKey ^= Zobrist.board[5][destination];
+          kingPawnProximityHashKey ^= Zobrist.board[5][destination];
         }
         case 'k' -> zobristKey ^= Zobrist.board[6][destination];
         case 'q' -> zobristKey ^= Zobrist.board[7][destination];
@@ -478,8 +496,9 @@ public class Model {
         case 'b' -> zobristKey ^= Zobrist.board[9][destination];
         case 'n' -> zobristKey ^= Zobrist.board[10][destination];
         case 'p' -> {
-          pawnHashKey ^= Zobrist.board[11][destination];
           zobristKey ^= Zobrist.board[11][destination];
+          pawnHashKey ^= Zobrist.board[11][destination];
+          kingPawnProximityHashKey ^= Zobrist.board[11][destination];
         }
       }
     } else {
@@ -487,10 +506,12 @@ public class Model {
         case 'P' -> {
           zobristKey ^= Zobrist.board[5][destination - 8];
           pawnHashKey ^= Zobrist.board[5][destination - 8];
+          kingPawnProximityHashKey ^= Zobrist.board[5][destination - 8];
         }
         case 'p' -> {
           zobristKey ^= Zobrist.board[11][destination + 8];
           pawnHashKey ^= Zobrist.board[11][destination + 8];
+          kingPawnProximityHashKey ^= Zobrist.board[11][destination + 8];
         }
       }
     }

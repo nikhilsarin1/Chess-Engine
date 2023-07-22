@@ -117,4 +117,18 @@ public class Zobrist {
     }
     return key;
   }
+
+  public static long getKingPawnProximityHashKey() {
+    long key = getPawnHashKey();
+
+    for (int i = 0; i < 64; i++) {
+      if (bitboard.charBoard[i] == 'K') {
+        key ^= board[0][i];
+      } else if (bitboard.charBoard[i] == 'k') {
+        key ^= board[6][i];
+      }
+    }
+
+    return key;
+  }
 }

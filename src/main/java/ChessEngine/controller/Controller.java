@@ -52,7 +52,6 @@ public class Controller {
   }
 
   public void botTurn() {
-    maxDepth = 6;
     long startTime = System.nanoTime(); // Capture the start time
     model.searching = true;
     bot.search(maxDepth, 0, -999999999, 999999999);
@@ -64,6 +63,9 @@ public class Controller {
     System.out.println("Moves/sec: " + bot.searchCount / elapsedSeconds);
     Move move = bot.getBestMove();
     model.movePiece(move, true, -1);
+    double eval = (double) bot.evaluation.evaluationDisplay() / 100;
+    // Evaluation can't display mate or draw scores
+    System.out.println("Evaluation: " + eval);
     model.searching = false;
     bot.searchCount = 0;
     bot.resetBestMove();

@@ -13,20 +13,18 @@ public class TranspositionTable {
   }
 
   public void storePosition(
-      // Consider looking at replacing entries that are not exact
       long zobristKey, int ply, int score, TranspositionEntry.Flag flag, Move bestMove) {
     TranspositionEntry newEntry = new TranspositionEntry(ply, score, flag, bestMove);
-    if (table.containsKey(zobristKey)) {
-      TranspositionEntry oldEntry = table.get(zobristKey);
-      if (newEntry.ply() >= oldEntry.ply()) {
-        table.put(zobristKey, newEntry);
-      }
-    } else {
-      table.put(zobristKey, newEntry);
-    }
+
+    // Always replace scheme seems to work better than depth based one
+    table.put(zobristKey, newEntry);
   }
 
   public TranspositionEntry getPosition(long zobristKey) {
     return table.getOrDefault(zobristKey, null);
+  }
+
+  public void clear() {
+    table.clear();
   }
 }

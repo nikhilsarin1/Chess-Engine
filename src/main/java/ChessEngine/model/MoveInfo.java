@@ -7,7 +7,6 @@ public class MoveInfo {
   public long[] pieceBitboards;
   public char[] charBoard;
   public List<Move> legalMoves;
-  public List<Move> legalCaptureMoves;
   public long zobristKey;
   public boolean WK;
   public boolean WQ;
@@ -20,6 +19,7 @@ public class MoveInfo {
   public int squareBonuses;
   public Map<Long, Integer> boardState;
   public long pawnHashKey;
+  public long kingPawnProximityHashKey;
   public boolean hasWhiteCastled;
   public boolean hasBlackCastled;
 

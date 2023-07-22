@@ -98,7 +98,7 @@ public class Bitboard {
     this.killerMoves = new Move[50][2];
     updateBitboard();
     generateLegalMoves(0);
-    this.materialCount = -1400;
+    this.materialCount = 0;
     this.squareBonuses = 0;
   }
 
