@@ -18,8 +18,8 @@ In the ChessEngine package, the current and improved implementation incorporates
 
 **Transposition Table**: Through the intelligent use of a transposition table, the engine stores previously evaluated positions, eliminating redundant evaluations and significantly speeding up the search process.
 
-**Move Ordering**: The engine utilizes move ordering heuristics, prioritizing moves with higher capture values, to explore more promising variations first. This approach can lead to early alpha-beta cutoffs, further improving search efficiency.
+**Move Ordering**: The engine utilizes move ordering heuristics, prioritizing moves with higher capture values, as well as killer move heuristics, to explore more promising variations first. This approach can lead to early alpha-beta cutoffs, further improving search efficiency.
 
 **Quiescence Search**: By incorporating a quiescence search, the engine ensures that it explores positions with captures and checks more deeply. This prevents the horizon effect and produces more accurate evaluations.
 
-With the integration of these techniques, the engine has achieved an impressive search rate of approximately 300,000 nodes per second, enabling it to consistently outperform bots rated 1900 on chess.com. The combination of these optimizations has significantly bolstered the engine's strategic and tactical capabilities, allowing it to confidently outperform its previous limitations and achieve remarkable results in various game scenarios.
+With the integration of these techniques, the engine has achieved an impressive search rate of approximately 250,000 nodes per second, enabling it to consistently outperform bots rated 1900 on chess.com. The combination of these optimizations has significantly bolstered the engine's strategic and tactical capabilities, allowing it to confidently outperform its previous limitations and achieve remarkable results in various game scenarios.
