@@ -22,4 +22,6 @@ In the ChessEngine package, the current and improved implementation incorporates
 
 **Quiescence Search**: By incorporating a quiescence search, the engine ensures that it explores positions with captures and checks more deeply. This prevents the horizon effect and produces more accurate evaluations.
 
+**Opening Book**: The engine now leverages a Polyglot Opening Book, a highly sophisticated and well-organized collection of opening moves and positions. By using this opening book, the engine selects a random move from the available book moves allowing it to play a diverse range of opening lines and games. 
+
 With the integration of these techniques, the engine has achieved an impressive search rate of approximately 250,000 nodes per second, enabling it to consistently outperform bots rated 1900 on chess.com. The combination of these optimizations has significantly bolstered the engine's strategic and tactical capabilities, allowing it to confidently outperform its previous limitations and achieve remarkable results in various game scenarios.
