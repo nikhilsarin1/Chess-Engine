@@ -48,7 +48,7 @@ public class Model {
     this.kingPawnProximityTable = new HashMap<>();
     this.hasWhiteCastled = false;
     this.hasBlackCastled = false;
-    PolyBook.getInstance(bitboard, this);
+    PolyBook.getInstance(bitboard);
     this.polyKey = PolyBook.getPolyKey();
     polyKeyEnPassantFile = 0;
     PolyBook.getBookMove(polyKey);

@@ -1,7 +1,6 @@
 package ChessEngine.AI;
 
 import ChessEngine.model.Bitboard;
-import ChessEngine.model.Model;
 import ChessEngine.model.Move;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -22,7 +21,6 @@ import java.util.Map;
 public class PolyBook {
   private static final int ENTRY_SIZE = 16;
   public static Bitboard bitboard;
-  public static Model model;
   public static Map<Long, List<Long>> openingBookData;
   public static long[] polyKeys = {
     (0x9D39247E33776D41L), (0x2AF7398005AAA5C7L), (0x44DB015024623547L), (0x9C15F73E62A76AE2L),
@@ -224,15 +222,14 @@ public class PolyBook {
   };
   private static PolyBook instance;
 
-  private PolyBook(Bitboard bitboard, Model model) {
+  private PolyBook(Bitboard bitboard) {
     PolyBook.bitboard = bitboard;
-    PolyBook.model = model;
     openingBookData = readPolyBookFromFile("/Titans.bin");
   }
 
-  public static synchronized void getInstance(Bitboard bitboard, Model model) {
+  public static synchronized void getInstance(Bitboard bitboard) {
     if (instance == null) {
-      instance = new PolyBook(bitboard, model);
+      instance = new PolyBook(bitboard);
     }
   }
 
