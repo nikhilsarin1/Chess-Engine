@@ -20,14 +20,12 @@ public class Evaluation {
   static int[] rookValues = {15, 12, 9, 6, 3, 0, -3, -6, -9};
   private final Model model;
   private final Bitboard bitboard;
-  public long check;
   private double openingWeight;
   private double endGameWeight;
 
   public Evaluation(Model model) {
     this.model = model;
     this.bitboard = model.getBitboard();
-    check = 0L;
   }
 
   public int evaluate(boolean currentTurn) {

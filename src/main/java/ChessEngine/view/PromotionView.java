@@ -1,5 +1,6 @@
 package ChessEngine.view;
 
+import java.util.Objects;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Pos;
@@ -31,15 +32,15 @@ public class PromotionView {
 
     // Choose the appropriate image files based on the color
     if (color) {
-      queenImage = createPromotionImage("white_queen.png");
-      rookImage = createPromotionImage("white_rook.png");
-      bishopImage = createPromotionImage("white_bishop.png");
-      knightImage = createPromotionImage("white_knight.png");
+      queenImage = createPromotionImage("/images/white_queen.png");
+      rookImage = createPromotionImage("/images/white_rook.png");
+      bishopImage = createPromotionImage("/images/white_bishop.png");
+      knightImage = createPromotionImage("/images/white_knight.png");
     } else {
-      queenImage = createPromotionImage("black_queen.png");
-      rookImage = createPromotionImage("black_rook.png");
-      bishopImage = createPromotionImage("black_bishop.png");
-      knightImage = createPromotionImage("black_knight.png");
+      queenImage = createPromotionImage("/images/black_queen.png");
+      rookImage = createPromotionImage("/images/black_rook.png");
+      bishopImage = createPromotionImage("/images/black_bishop.png");
+      knightImage = createPromotionImage("/images/black_knight.png");
     }
 
     // Create a tile pane and add the promotion images
@@ -70,7 +71,8 @@ public class PromotionView {
   }
 
   private ImageView createPromotionImage(String imagePath) {
-    ImageView imageView = new ImageView(imagePath);
+    ImageView imageView =
+        new ImageView(Objects.requireNonNull(getClass().getResource(imagePath)).toExternalForm());
     imageView.setPreserveRatio(true);
     imageView.setFitHeight(80);
 

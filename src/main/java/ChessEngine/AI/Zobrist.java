@@ -1,7 +1,6 @@
 package ChessEngine.AI;
 
 import ChessEngine.model.Bitboard;
-
 import java.security.SecureRandom;
 
 @SuppressWarnings("InstantiationOfUtilityClass")

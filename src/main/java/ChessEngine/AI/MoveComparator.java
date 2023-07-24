@@ -2,7 +2,6 @@ package ChessEngine.AI;
 
 import ChessEngine.model.Bitboard;
 import ChessEngine.model.Move;
-
 import java.util.Comparator;
 
 public class MoveComparator implements Comparator<Move> {

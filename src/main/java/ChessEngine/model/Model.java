@@ -1,9 +1,9 @@
 package ChessEngine.model;
 
 import ChessEngine.AI.PawnEntry;
+import ChessEngine.AI.PolyBook;
 import ChessEngine.AI.TranspositionTable;
 import ChessEngine.AI.Zobrist;
-
 import java.util.*;
 
 public class Model {
@@ -19,6 +19,8 @@ public class Model {
   public long kingPawnProximityHashKey;
   public boolean hasWhiteCastled;
   public boolean hasBlackCastled;
+  public long polyKey;
+  public int polyKeyEnPassantFile;
   private boolean currentTurn;
   private boolean selectedPlayer;
   private int lastMoveOrigin;
@@ -46,6 +48,10 @@ public class Model {
     this.kingPawnProximityTable = new HashMap<>();
     this.hasWhiteCastled = false;
     this.hasBlackCastled = false;
+    PolyBook.getInstance(bitboard, this);
+    this.polyKey = PolyBook.getPolyKey();
+    polyKeyEnPassantFile = 0;
+    PolyBook.getBookMove(polyKey);
   }
 
   public Bitboard getBitboard() {
@@ -113,6 +119,8 @@ public class Model {
     moveInfo.kingPawnProximityHashKey = kingPawnProximityHashKey;
     moveInfo.hasWhiteCastled = hasWhiteCastled;
     moveInfo.hasBlackCastled = hasBlackCastled;
+    moveInfo.polyKey = polyKey;
+    moveInfo.polyKeyEnPassantFile = polyKeyEnPassantFile;
     int origin = move.getOrigin();
     int destination = move.getDestination();
     char piece = move.getPiece();
@@ -121,6 +129,7 @@ public class Model {
     long destinationBitboard = bitboard.convertIntToBitboard(destination);
     moveInfo.enPassantSquare = bitboard.getEnPassantSquare();
     bitboard.setEnPassantSquare(0L);
+    polyKeyEnPassantFile = 0;
     boolean resetMoveCount = false;
 
     bitboard.charBoard[origin] = ' ';
@@ -204,6 +213,12 @@ public class Model {
         bitboard.pieceBitboards[5] |= destinationBitboard;
         if (Math.abs(destination - origin) == 16) {
           bitboard.setEnPassantSquare(originBitboard << 8);
+          if (((destinationBitboard & ~Bitboard.fileMasks[7]) >> 1 & bitboard.pieceBitboards[11])
+                  != 0L
+              || ((destinationBitboard & ~Bitboard.fileMasks[0]) << 1 & bitboard.pieceBitboards[11])
+                  != 0L) {
+            polyKeyEnPassantFile = ((destination % 8) + 1);
+          }
         }
         if (move.isEnPassant()) {
           bitboard.pieceBitboards[11] ^= destinationBitboard >> 8;
@@ -291,6 +306,12 @@ public class Model {
         bitboard.pieceBitboards[11] |= destinationBitboard;
         if (Math.abs(destination - origin) == 16) {
           bitboard.setEnPassantSquare(originBitboard >> 8);
+          if (((destinationBitboard & ~Bitboard.fileMasks[7]) >> 1 & bitboard.pieceBitboards[5])
+                  != 0L
+              || ((destinationBitboard & ~Bitboard.fileMasks[0]) << 1 & bitboard.pieceBitboards[5])
+                  != 0L) {
+            polyKeyEnPassantFile = ((destination % 8) + 1);
+          }
         }
         if (move.isEnPassant()) {
           bitboard.pieceBitboards[5] ^= destinationBitboard << 8;
@@ -375,6 +396,8 @@ public class Model {
     kingPawnProximityHashKey = moveInfo.kingPawnProximityHashKey;
     hasWhiteCastled = moveInfo.hasWhiteCastled;
     hasBlackCastled = moveInfo.hasBlackCastled;
+    polyKey = moveInfo.polyKey;
+    polyKeyEnPassantFile = moveInfo.polyKeyEnPassantFile;
   }
 
   public void updateHashKeys(Move move, MoveInfo moveInfo) {
@@ -382,6 +405,8 @@ public class Model {
     int destination = move.getDestination();
     char piece = move.getPiece();
     char capturedPiece = move.getCapturedPiece();
+    int polyKeyOrigin = ((7 - (origin / 8)) * 8 + (origin % 8));
+    int polyKeyDestination = ((7 - (destination / 8)) * 8 + (destination % 8));
 
     switch (piece) {
       case 'K' -> {
@@ -389,45 +414,73 @@ public class Model {
         zobristKey ^= Zobrist.board[0][destination];
         kingPawnProximityHashKey ^= Zobrist.board[0][origin];
         kingPawnProximityHashKey ^= Zobrist.board[0][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 11 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 11 + polyKeyDestination];
         if (move.isKingSideCastle()) {
           zobristKey ^= Zobrist.board[2][63];
           zobristKey ^= Zobrist.board[2][61];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + 7];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + 5];
         } else if (move.isQueenSideCastle()) {
           zobristKey ^= Zobrist.board[2][56];
           zobristKey ^= Zobrist.board[2][59];
+          polyKey ^= PolyBook.polyKeys[64 * 7];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + 2];
         }
       }
       case 'Q' -> {
         zobristKey ^= Zobrist.board[1][origin];
         zobristKey ^= Zobrist.board[1][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 9 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 9 + polyKeyDestination];
       }
       case 'R' -> {
         zobristKey ^= Zobrist.board[2][origin];
         zobristKey ^= Zobrist.board[2][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 7 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 7 + polyKeyDestination];
       }
       case 'B' -> {
         zobristKey ^= Zobrist.board[3][origin];
         zobristKey ^= Zobrist.board[3][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 5 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 5 + polyKeyDestination];
       }
       case 'N' -> {
         zobristKey ^= Zobrist.board[4][origin];
         zobristKey ^= Zobrist.board[4][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 3 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 3 + polyKeyDestination];
       }
       case 'P' -> {
         zobristKey ^= Zobrist.board[5][origin];
         pawnHashKey ^= Zobrist.board[5][origin];
         kingPawnProximityHashKey ^= Zobrist.board[5][origin];
+        polyKey ^= PolyBook.polyKeys[64 + polyKeyOrigin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
-            case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
-            case 'R' -> zobristKey ^= Zobrist.board[2][destination];
-            case 'B' -> zobristKey ^= Zobrist.board[3][destination];
-            case 'N' -> zobristKey ^= Zobrist.board[4][destination];
+            case 'Q' -> {
+              zobristKey ^= Zobrist.board[1][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 9 + polyKeyDestination];
+            }
+            case 'R' -> {
+              zobristKey ^= Zobrist.board[2][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 7 + polyKeyDestination];
+            }
+            case 'B' -> {
+              zobristKey ^= Zobrist.board[3][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 9 + polyKeyDestination];
+            }
+            case 'N' -> {
+              zobristKey ^= Zobrist.board[4][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 3 + polyKeyDestination];
+            }
           }
         } else {
           zobristKey ^= Zobrist.board[5][destination];
           pawnHashKey ^= Zobrist.board[5][destination];
           kingPawnProximityHashKey ^= Zobrist.board[5][destination];
+          polyKey ^= PolyBook.polyKeys[64 + polyKeyDestination];
         }
       }
       case 'k' -> {
@@ -435,70 +488,131 @@ public class Model {
         zobristKey ^= Zobrist.board[6][destination];
         kingPawnProximityHashKey ^= Zobrist.board[6][origin];
         kingPawnProximityHashKey ^= Zobrist.board[6][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 10 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 10 + polyKeyDestination];
+
         if (move.isKingSideCastle()) {
           zobristKey ^= Zobrist.board[8][7];
           zobristKey ^= Zobrist.board[8][5];
+          polyKey ^= PolyBook.polyKeys[64 * 6 + 63];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + 61];
         } else if (move.isQueenSideCastle()) {
           zobristKey ^= Zobrist.board[8][0];
           zobristKey ^= Zobrist.board[8][3];
+          polyKey ^= PolyBook.polyKeys[64 * 6 + 56];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + 59];
         }
       }
       case 'q' -> {
         zobristKey ^= Zobrist.board[7][origin];
         zobristKey ^= Zobrist.board[7][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 8 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 8 + polyKeyDestination];
       }
       case 'r' -> {
         zobristKey ^= Zobrist.board[8][origin];
         zobristKey ^= Zobrist.board[8][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 6 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 6 + polyKeyDestination];
       }
       case 'b' -> {
         zobristKey ^= Zobrist.board[9][origin];
         zobristKey ^= Zobrist.board[9][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 4 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 4 + polyKeyDestination];
       }
       case 'n' -> {
         zobristKey ^= Zobrist.board[10][origin];
         zobristKey ^= Zobrist.board[10][destination];
+        polyKey ^= PolyBook.polyKeys[64 * 2 + polyKeyOrigin];
+        polyKey ^= PolyBook.polyKeys[64 * 2 + polyKeyDestination];
       }
       case 'p' -> {
         zobristKey ^= Zobrist.board[11][origin];
         pawnHashKey ^= Zobrist.board[11][origin];
         kingPawnProximityHashKey ^= Zobrist.board[11][origin];
+        polyKey ^= PolyBook.polyKeys[polyKeyOrigin];
         if (move.getPromotion() != ' ') {
           switch (move.getPromotion()) {
-            case 'q' -> zobristKey ^= Zobrist.board[7][destination];
-            case 'r' -> zobristKey ^= Zobrist.board[8][destination];
-            case 'b' -> zobristKey ^= Zobrist.board[9][destination];
-            case 'n' -> zobristKey ^= Zobrist.board[10][destination];
+            case 'q' -> {
+              zobristKey ^= Zobrist.board[7][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 8 + polyKeyDestination];
+            }
+            case 'r' -> {
+              zobristKey ^= Zobrist.board[8][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 6 + polyKeyDestination];
+            }
+            case 'b' -> {
+              zobristKey ^= Zobrist.board[9][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 4 + polyKeyDestination];
+            }
+            case 'n' -> {
+              zobristKey ^= Zobrist.board[10][destination];
+              polyKey ^= PolyBook.polyKeys[64 * 8 + polyKeyDestination];
+            }
           }
         } else {
           zobristKey ^= Zobrist.board[11][destination];
           pawnHashKey ^= Zobrist.board[11][destination];
           kingPawnProximityHashKey ^= Zobrist.board[11][destination];
+          polyKey ^= PolyBook.polyKeys[polyKeyDestination];
         }
       }
     }
 
     if (!move.isEnPassant()) {
       switch (capturedPiece) {
-        case 'K' -> zobristKey ^= Zobrist.board[0][destination];
-        case 'Q' -> zobristKey ^= Zobrist.board[1][destination];
-        case 'R' -> zobristKey ^= Zobrist.board[2][destination];
-        case 'B' -> zobristKey ^= Zobrist.board[3][destination];
-        case 'N' -> zobristKey ^= Zobrist.board[4][destination];
+        case 'K' -> {
+          zobristKey ^= Zobrist.board[0][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 11 + polyKeyDestination];
+        }
+        case 'Q' -> {
+          zobristKey ^= Zobrist.board[1][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 9 + polyKeyDestination];
+        }
+        case 'R' -> {
+          zobristKey ^= Zobrist.board[2][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 7 + polyKeyDestination];
+        }
+        case 'B' -> {
+          zobristKey ^= Zobrist.board[3][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 5 + polyKeyDestination];
+        }
+        case 'N' -> {
+          zobristKey ^= Zobrist.board[4][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 3 + polyKeyDestination];
+        }
         case 'P' -> {
           zobristKey ^= Zobrist.board[5][destination];
           pawnHashKey ^= Zobrist.board[5][destination];
           kingPawnProximityHashKey ^= Zobrist.board[5][destination];
+          polyKey ^= PolyBook.polyKeys[64 + polyKeyDestination];
         }
-        case 'k' -> zobristKey ^= Zobrist.board[6][destination];
-        case 'q' -> zobristKey ^= Zobrist.board[7][destination];
-        case 'r' -> zobristKey ^= Zobrist.board[8][destination];
-        case 'b' -> zobristKey ^= Zobrist.board[9][destination];
-        case 'n' -> zobristKey ^= Zobrist.board[10][destination];
+        case 'k' -> {
+          zobristKey ^= Zobrist.board[6][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 10 + polyKeyDestination];
+        }
+        case 'q' -> {
+          zobristKey ^= Zobrist.board[7][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 8 + polyKeyDestination];
+        }
+        case 'r' -> {
+          zobristKey ^= Zobrist.board[8][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 6 + polyKeyDestination];
+        }
+        case 'b' -> {
+          zobristKey ^= Zobrist.board[9][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 4 + polyKeyDestination];
+        }
+        case 'n' -> {
+          zobristKey ^= Zobrist.board[10][destination];
+          polyKey ^= PolyBook.polyKeys[64 * 2 + polyKeyDestination];
+        }
         case 'p' -> {
           zobristKey ^= Zobrist.board[11][destination];
           pawnHashKey ^= Zobrist.board[11][destination];
           kingPawnProximityHashKey ^= Zobrist.board[11][destination];
+          polyKey ^= PolyBook.polyKeys[polyKeyDestination];
         }
       }
     } else {
@@ -507,11 +621,13 @@ public class Model {
           zobristKey ^= Zobrist.board[5][destination - 8];
           pawnHashKey ^= Zobrist.board[5][destination - 8];
           kingPawnProximityHashKey ^= Zobrist.board[5][destination - 8];
+          polyKey ^= PolyBook.polyKeys[64 + polyKeyDestination + 8];
         }
         case 'p' -> {
           zobristKey ^= Zobrist.board[11][destination + 8];
           pawnHashKey ^= Zobrist.board[11][destination + 8];
           kingPawnProximityHashKey ^= Zobrist.board[11][destination + 8];
+          polyKey ^= PolyBook.polyKeys[polyKeyDestination - 8];
         }
       }
     }
@@ -527,20 +643,34 @@ public class Model {
       }
     }
 
+    if (polyKeyEnPassantFile != moveInfo.polyKeyEnPassantFile) {
+      if (polyKeyEnPassantFile != 0) {
+        polyKey ^= PolyBook.polyKeys[771 + polyKeyEnPassantFile];
+      }
+      if (moveInfo.polyKeyEnPassantFile != 0) {
+        polyKey ^= PolyBook.polyKeys[771 + moveInfo.polyKeyEnPassantFile];
+      }
+    }
+
     if (bitboard.whiteKingSide != moveInfo.WK) {
       zobristKey ^= Zobrist.castle[0];
+      polyKey ^= PolyBook.polyKeys[768];
     }
     if (bitboard.whiteQueenSide != moveInfo.WQ) {
       zobristKey ^= Zobrist.castle[1];
+      polyKey ^= PolyBook.polyKeys[769];
     }
     if (bitboard.blackKingSide != moveInfo.BK) {
       zobristKey ^= Zobrist.castle[2];
+      polyKey ^= PolyBook.polyKeys[770];
     }
     if (bitboard.blackQueenSide != moveInfo.BQ) {
       zobristKey ^= Zobrist.castle[3];
+      polyKey ^= PolyBook.polyKeys[771];
     }
 
     zobristKey ^= Zobrist.turn;
+    polyKey ^= PolyBook.polyKeys[780];
   }
 
   public boolean isCheck() {

@@ -2,7 +2,6 @@ package ChessEngine.model;
 
 import ChessEngine.AI.MoveComparator;
 import ChessEngine.AI.PieceTables;
-
 import java.util.*;
 
 public class Bitboard {

@@ -1,7 +1,6 @@
 package ChessEngine.AI;
 
 import ChessEngine.model.Move;
-
 import java.util.HashMap;
 import java.util.Map;
 

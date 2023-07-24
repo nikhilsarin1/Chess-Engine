@@ -3,6 +3,7 @@ package ChessEngine.view;
 import ChessEngine.controller.Controller;
 import ChessEngine.model.Model;
 import ChessEngine.model.ModelObserver;
+import java.util.Objects;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -16,6 +17,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.ColumnConstraints;
@@ -27,8 +29,6 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
-
-import java.util.Objects;
 
 public class ChessboardView implements ModelObserver, FXComponent {
   private final Controller controller;
@@ -52,7 +52,6 @@ public class ChessboardView implements ModelObserver, FXComponent {
     this.lastMoveDestination = -1;
     this.orientation = true;
     showColorSelectionDialog();
-    flipBoard();
   }
 
   public Parent render() {
@@ -119,18 +118,66 @@ public class ChessboardView implements ModelObserver, FXComponent {
         ImageView pieceImage = null;
 
         switch (chessboard[square]) {
-          case 'K' -> pieceImage = new ImageView("white_king.png");
-          case 'Q' -> pieceImage = new ImageView("white_queen.png");
-          case 'R' -> pieceImage = new ImageView("white_rook.png");
-          case 'B' -> pieceImage = new ImageView("white_bishop.png");
-          case 'N' -> pieceImage = new ImageView("white_knight.png");
-          case 'P' -> pieceImage = new ImageView("white_pawn.png");
-          case 'k' -> pieceImage = new ImageView("black_king.png");
-          case 'q' -> pieceImage = new ImageView("black_queen.png");
-          case 'r' -> pieceImage = new ImageView("black_rook.png");
-          case 'b' -> pieceImage = new ImageView("black_bishop.png");
-          case 'n' -> pieceImage = new ImageView("black_knight.png");
-          case 'p' -> pieceImage = new ImageView("black_pawn.png");
+          case 'K' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_king.png"))
+                          .toExternalForm()));
+          case 'Q' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_queen.png"))
+                          .toExternalForm()));
+          case 'R' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_rook.png"))
+                          .toExternalForm()));
+          case 'B' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_bishop.png"))
+                          .toExternalForm()));
+          case 'N' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_knight.png"))
+                          .toExternalForm()));
+          case 'P' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/white_pawn.png"))
+                          .toExternalForm()));
+          case 'k' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_king.png"))
+                          .toExternalForm()));
+          case 'q' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_queen.png"))
+                          .toExternalForm()));
+          case 'r' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_rook.png"))
+                          .toExternalForm()));
+          case 'b' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_bishop.png"))
+                          .toExternalForm()));
+          case 'n' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_knight.png"))
+                          .toExternalForm()));
+          case 'p' -> pieceImage =
+              new ImageView(
+                  new Image(
+                      Objects.requireNonNull(getClass().getResource("/images/black_pawn.png"))
+                          .toExternalForm()));
         }
         if (pieceImage != null) {
           pieceImage.setFitHeight(80);

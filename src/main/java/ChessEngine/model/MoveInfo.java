@@ -22,6 +22,8 @@ public class MoveInfo {
   public long kingPawnProximityHashKey;
   public boolean hasWhiteCastled;
   public boolean hasBlackCastled;
+  public long polyKey;
+  public int polyKeyEnPassantFile;
 
   public MoveInfo() {}
 }
